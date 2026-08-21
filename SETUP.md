@@ -1,11 +1,17 @@
-# Full Setup Guide
+# Full Setup Guide (MySQL + Hostinger Ready)
 
-## 1. Clone the repository
+## 1. Database (MySQL) Setup on Hostinger
 
-```bash
-git clone https://github.com/faham112/virtual-otp-system.git
-cd virtual-otp-system
-```
+1. Hostinger hPanel → **Databases** → **MySQL Databases**
+2. Create a new database (example name: `virtual_otp`)
+3. Create a database user and set strong password
+4. Add the user to the database with **All Privileges**
+
+Note down:
+- Database Name
+- Database Username
+- Database Password
+- Host (usually `localhost`)
 
 ## 2. Backend Setup
 
@@ -13,51 +19,44 @@ cd virtual-otp-system
 cd backend
 python -m venv venv
 
-# Activate virtual environment
+# Activate
 # Windows:
 venv\Scripts\activate
-# Linux/Mac:
+# Linux / Hostinger terminal:
 source venv/bin/activate
 
 pip install -r requirements.txt
-
-# Create .env file
-cp .env.example .env
 ```
 
-Edit `.env` file:
+Create `.env` file:
 
 ```env
-DATABASE_URL=postgresql://user:password@localhost:5432/virtual_otp
-# Or for quick testing use SQLite:
-# DATABASE_URL=sqlite:///./virtual_otp.db
+DATABASE_URL=mysql+pymysql://DB_USERNAME:DB_PASSWORD@localhost:3306/DB_NAME
 
-SECRET_KEY=your_very_long_random_secret_key_here
-FIVESIM_API_KEY=your_real_5sim_api_key
+SECRET_KEY=any_long_random_string_here_123456789
+FIVESIM_API_KEY=your_real_5sim_key
 ```
 
-Run the server:
+Run:
 
 ```bash
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-API Docs: http://localhost:8000/docs
-
-## 3. Create Admin User
-
-After first run, you can register normally then manually set `is_admin = true` in database, or I can add a script later.
-
-## 4. Frontend (Coming next)
+## 3. Frontend (Next.js)
 
 ```bash
 cd frontend
 npm install
-npm run dev
+npm run build
+npm start
 ```
+
+Or on Hostinger use **Deploy Web App** and point to `/frontend` folder.
 
 ## Important Notes
 
-- OTP fail hone pe automatic full refund hota hai
-- Markup default 100% hai (admin change kar sakta hai)
-- 5sim API key zaroori hai
+- MySQL Hostinger pe perfectly kaam karta hai
+- Backend (FastAPI) ke liye better hai VPS / Railway / Render use karo
+- Shared hosting pe Python apps limited support dete hain
+- Frontend Next.js Hostinger Web App pe chal sakta hai
