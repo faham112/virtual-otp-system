@@ -1,12 +1,45 @@
-from pydantic import BaseModel, EmailStr
-from typing import Optional
+from pydantic import BaseModel, EmailStr, Field, field_validator
+from typing import Optional, List
 from datetime import datetime
+
+# Allowed values (must match frontend + 5sim)
+ALLOWED_SERVICES = {
+    "facebook", "whatsapp", "telegram", "google", "instagram",
+    "twitter", "tiktok", "discord", "microsoft", "amazon",
+    "apple", "linkedin", "viber", "snapchat", "uber"
+}
+
+ALLOWED_COUNTRIES = {
+    "any", "england", "usa", "russia", "indonesia", "india",
+    "ukraine", "kazakhstan", "philippines", "vietnam",
+    "brazil", "nigeria", "pakistan", "bangladesh", "china",
+    "germany", "france", "netherlands", "poland", "spain"
+}
 
 # ========== Auth Schemas ==========
 class UserCreate(BaseModel):
-    username: str
+    username: str = Field(..., min_length=3, max_length=50)
     email: EmailStr
-    password: str
+    password: str = Field(..., min_length=8, max_length=128)
+
+    @field_validator("username")
+    @classmethod
+    def username_alphanumeric(cls, v: str) -> str:
+        v = v.strip()
+        if not v.replace("_", "").isalnum():
+            raise ValueError("Username must be alphanumeric (underscore allowed)")
+        return v.lower()
+
+    @field_validator("password")
+    @classmethod
+    def password_strength(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters")
+        if not any(c.isupper() for c in v):
+            raise ValueError("Password must contain at least one uppercase letter")
+        if not any(c.isdigit() for c in v):
+            raise ValueError("Password must contain at least one digit")
+        return v
 
 class UserLogin(BaseModel):
     username: str
@@ -30,8 +63,24 @@ class UserOut(BaseModel):
 
 # ========== Order Schemas ==========
 class OrderCreate(BaseModel):
-    service: str          # facebook, whatsapp, telegram etc
-    country: str = "any"  # england, russia, usa, any
+    service: str
+    country: str = "any"
+
+    @field_validator("service")
+    @classmethod
+    def validate_service(cls, v: str) -> str:
+        v = v.lower().strip()
+        if v not in ALLOWED_SERVICES:
+            raise ValueError(f"Invalid service. Allowed: {', '.join(sorted(ALLOWED_SERVICES))}")
+        return v
+
+    @field_validator("country")
+    @classmethod
+    def validate_country(cls, v: str) -> str:
+        v = v.lower().strip()
+        if v not in ALLOWED_COUNTRIES:
+            raise ValueError(f"Invalid country. Allowed: {', '.join(sorted(ALLOWED_COUNTRIES))}")
+        return v
 
 class OrderOut(BaseModel):
     id: int
@@ -62,8 +111,8 @@ class TransactionOut(BaseModel):
 # ========== Admin ==========
 class AddBalance(BaseModel):
     user_id: int
-    amount: float
+    amount: float = Field(..., gt=0, le=100000)
     description: str = "Admin credit"
 
 class MarkupUpdate(BaseModel):
-    markup_percent: float
+    markup_percent: float = Field(..., ge=0, le=500)
