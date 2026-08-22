@@ -1,89 +1,64 @@
 # Virtual OTP System
 
 Multi-user Virtual Number / OTP Receiving System  
-**FastAPI** + **Next.js 15** + **5sim.net**
+**FastAPI** + **Next.js 15** + **5sim.net** + **PostgreSQL / SQLite**
 
-Version **2.0** — Seed system, high security, advanced UI, country flags, auto OTP polling.
+Version **2.1** — Railway ready, PostgreSQL support, interactive `setup.sh`, seed system, advanced UI.
 
 ---
 
 ## Features
 
-- Multi-user system with JWT Authentication
-- Wallet system (Admin controls balance)
-- Admin can set markup / pricing
-- **Seed system** — admin + default settings auto-created from `.env`
-- Real-time OTP polling on Dashboard (every 8s)
-- Automatic full refund if OTP fails / times out
-- Country selection with flags — **only selected country is requested**
-- Strong password rules + input validation
-- Secure CORS from environment
-- Race-condition safe balance updates
-- Clean dark modern UI
-
-## Tech Stack
-
-| Layer     | Stack                                      |
-|-----------|--------------------------------------------|
-| Backend   | Python FastAPI + SQLAlchemy + SQLite/MySQL |
-| Frontend  | Next.js 15 (App Router) + Tailwind CSS     |
-| Auth      | JWT (python-jose) + bcrypt                 |
-| SMS       | 5sim.net                                   |
+- Multi-user JWT auth + wallet system
+- Admin markup / balance control
+- **Seed system** — admin + tables auto from `.env`
+- Real-time OTP polling (8s)
+- Country flags + strict country only
+- Full refund on timeout / fail
+- Race-condition safe balance
+- Railway + PostgreSQL production ready
 
 ---
 
-## Quick Start (Local)
-
-### 1. Backend
+## Quick Local Setup
 
 ```bash
+git clone https://github.com/faham112/virtual-otp-system.git
+cd virtual-otp-system
+
+# Interactive wizard — asks for keys, creates .env, ready for seed
+bash setup.sh
+
+# Backend
 cd backend
-python -m venv venv
-
-# Windows
-venv\Scripts\activate
-# Linux / macOS
-source venv/bin/activate
-
+python -m venv venv && source venv/bin/activate   # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env
-# Edit .env — at minimum set FIVESIM_API_KEY and SECRET_KEY
+uvicorn app.main:app --reload --port 8000
 
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-On first run the **seed system** will:
-- Create tables
-- Create admin user from `ADMIN_USERNAME` / `ADMIN_PASSWORD` / `ADMIN_EMAIL`
-- Set default markup from `DEFAULT_MARKUP_PERCENT`
-
-### 2. Frontend
-
-```bash
+# Frontend (new terminal)
 cd frontend
-npm install
-cp .env.example .env.local
-# NEXT_PUBLIC_API_URL=http://localhost:8000
-
-npm run dev
+npm install && npm run dev
 ```
 
-Open http://localhost:3000
+Open http://localhost:3000 — login with admin credentials you entered in `setup.sh`.
+
+Seed (tables + admin) **automatically** runs on first backend start.
 
 ---
 
-## Environment Variables (backend/.env)
+## Railway Deployment (Frontend + Backend + Postgres)
 
-| Variable | Description |
-|----------|-------------|
-| `DATABASE_URL` | `sqlite:///./virtual_otp.db` (local) or MySQL URL |
-| `SECRET_KEY` | Long random string (min 32 chars) |
-| `FIVESIM_API_KEY` | Your 5sim API key |
-| `ADMIN_USERNAME` | Admin username (default: admin) |
-| `ADMIN_EMAIL` | Admin email |
-| `ADMIN_PASSWORD` | Strong admin password |
-| `DEFAULT_MARKUP_PERCENT` | Default markup % (default 50) |
-| `CORS_ORIGINS` | Comma-separated allowed origins |
+Full guide: **[RAILWAY.md](./RAILWAY.md)**
+
+Short version:
+
+1. Railway pe New Project
+2. **+ Database → PostgreSQL** (alag service)
+3. **Backend** service — Root Directory = `backend`  
+   Variables: `DATABASE_URL=${{Postgres.DATABASE_URL}}` + SECRET_KEY, FIVESIM_API_KEY, ADMIN_*, CORS_ORIGINS
+4. **Frontend** service — Root Directory = `frontend`  
+   Variable: `NEXT_PUBLIC_API_URL=https://your-backend.up.railway.app`
+5. Deploy → seed auto-chalega → admin ready
 
 ---
 
@@ -91,38 +66,23 @@ Open http://localhost:3000
 
 ```
 virtual-otp-system/
+├── setup.sh                 # Interactive .env + seed wizard
+├── RAILWAY.md               # Full Railway guide
 ├── backend/
 │   ├── app/
 │   │   ├── main.py
-│   │   ├── seed.py          # Auto seed on startup
-│   │   ├── auth.py
-│   │   ├── models.py
-│   │   ├── schemas.py       # Strong validation
-│   │   ├── routers/
-│   │   └── services/fivesim.py
+│   │   ├── seed.py
+│   │   ├── database.py      # SQLite + MySQL + PostgreSQL
+│   │   └── ...
 │   ├── requirements.txt
-│   └── .env.example
+│   ├── railway.toml
+│   └── Procfile
 ├── frontend/
 │   ├── app/
-│   │   ├── page.tsx
-│   │   ├── login/
-│   │   ├── register/
-│   │   ├── dashboard/       # Live OTP polling
-│   │   └── buy/             # Country flags + strict country
+│   ├── railway.toml
 │   └── ...
 └── README.md
 ```
-
----
-
-## Security Highlights
-
-- Password must be ≥8 chars, 1 uppercase, 1 digit
-- JWT with proper expiry + iat
-- CORS locked to configured origins
-- Row-level locking (`with_for_update`) on balance changes
-- Service & Country whitelist validation
-- No wildcard CORS in production
 
 ---
 
