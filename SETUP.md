@@ -1,49 +1,99 @@
-# Full Setup Guide (MySQL + Hostinger Ready)
+# Full Setup Guide (Local + Hostinger Ready)
 
-## 1. Database (MySQL) Setup on Hostinger
+## Local Development (Recommended First)
 
-1. Hostinger hPanel → **Databases** → **MySQL Databases**
-2. Create a new database (example name: `virtual_otp`)
-3. Create a database user and set strong password
-4. Add the user to the database with **All Privileges**
-
-Note down:
-- Database Name
-- Database Username
-- Database Password
-- Host (usually `localhost`)
-
-## 2. Backend Setup
+### 1. Backend
 
 ```bash
 cd backend
 python -m venv venv
 
-# Activate
-# Windows:
+# Windows
 venv\Scripts\activate
-# Linux / Hostinger terminal:
+# Linux / macOS
 source venv/bin/activate
 
 pip install -r requirements.txt
+cp .env.example .env
 ```
 
-Create `.env` file:
+Edit `backend/.env`:
 
 ```env
-DATABASE_URL=mysql+pymysql://DB_USERNAME:DB_PASSWORD@localhost:3306/DB_NAME
+DATABASE_URL=sqlite:///./virtual_otp.db
 
-SECRET_KEY=any_long_random_string_here_123456789
+SECRET_KEY=paste_a_long_random_string_here_at_least_32_chars
 FIVESIM_API_KEY=your_real_5sim_key
+
+ADMIN_USERNAME=admin
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=Admin@Secure123!
+
+DEFAULT_MARKUP_PERCENT=50
+CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+```
+
+Generate a strong SECRET_KEY:
+
+```bash
+python -c "import secrets; print(secrets.token_hex(32))"
 ```
 
 Run:
 
 ```bash
-uvicorn app.main:app --host 0.0.0.0 --port 8000
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-## 3. Frontend (Next.js)
+On first start you will see:
+
+```
+[SEED] Created default markup_percent = 50%
+[SEED] Created admin user: admin
+[SEED] Database seed completed successfully
+```
+
+### 2. Frontend
+
+```bash
+cd frontend
+npm install
+cp .env.example .env.local
+# Keep: NEXT_PUBLIC_API_URL=http://localhost:8000
+
+npm run dev
+```
+
+Open: http://localhost:3000
+
+Login with the admin credentials from `.env`.
+
+---
+
+## Production / Hostinger (MySQL)
+
+### Database
+
+1. Hostinger hPanel → Databases → MySQL Databases
+2. Create database + user with All Privileges
+3. Note: name, username, password, host (usually `localhost`)
+
+### Backend .env
+
+```env
+DATABASE_URL=mysql+pymysql://DB_USER:DB_PASS@localhost:3306/DB_NAME
+SECRET_KEY=your_long_secret
+FIVESIM_API_KEY=your_key
+ADMIN_USERNAME=admin
+ADMIN_EMAIL=admin@yourdomain.com
+ADMIN_PASSWORD=VeryStrongPassword123!
+DEFAULT_MARKUP_PERCENT=50
+CORS_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
+```
+
+Run backend on VPS / Railway / Render (shared hosting has limited Python support).
+
+### Frontend
 
 ```bash
 cd frontend
@@ -52,11 +102,15 @@ npm run build
 npm start
 ```
 
-Or on Hostinger use **Deploy Web App** and point to `/frontend` folder.
+Or deploy via Hostinger Web App pointing to `/frontend`.
+
+---
 
 ## Important Notes
 
-- MySQL Hostinger pe perfectly kaam karta hai
-- Backend (FastAPI) ke liye better hai VPS / Railway / Render use karo
-- Shared hosting pe Python apps limited support dete hain
-- Frontend Next.js Hostinger Web App pe chal sakta hai
+- SQLite is perfect for local testing — zero setup
+- MySQL works great on Hostinger for production data
+- Backend (FastAPI) is best on VPS / Railway / Render
+- Frontend Next.js can run on Hostinger Web App or Vercel
+- Never commit real `.env` files
+- Change `ADMIN_PASSWORD` immediately after first login in production

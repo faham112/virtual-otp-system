@@ -10,8 +10,8 @@ class FiveSimService:
 
     def __init__(self):
         self.api_key = os.getenv("FIVESIM_API_KEY")
-        if not self.api_key:
-            raise ValueError("FIVESIM_API_KEY is not set in environment variables")
+        if not self.api_key or self.api_key == "your_5sim_api_key_here":
+            raise ValueError("FIVESIM_API_KEY is not set or is still the example value in .env")
         self.headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Accept": "application/json"
@@ -26,7 +26,7 @@ class FiveSimService:
 
     async def buy_number(self, country: str, operator: str, product: str) -> Dict[str, Any]:
         """
-        Buy activation number
+        Buy activation number for the EXACT country requested.
         country: e.g. england, russia, usa, any
         operator: any (recommended)
         product: facebook, whatsapp, telegram, etc.
@@ -35,7 +35,7 @@ class FiveSimService:
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.get(url, headers=self.headers)
             if response.status_code != 200:
-                raise Exception(f"5sim Error: {response.text}")
+                raise Exception(f"5sim Error ({response.status_code}): {response.text}")
             return response.json()
 
     async def check_order(self, order_id: str) -> Dict[str, Any]:
