@@ -11,7 +11,7 @@ router = APIRouter()
 
 @router.post("/register", response_model=UserOut)
 def register(user: UserCreate, db: Session = Depends(get_db)):
-    # Check if username or email already exists
+    # Check duplicates
     if db.query(User).filter(User.username == user.username).first():
         raise HTTPException(status_code=400, detail="Username already registered")
     if db.query(User).filter(User.email == user.email).first():
@@ -20,7 +20,10 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
     db_user = User(
         username=user.username,
         email=user.email,
-        hashed_password=get_password_hash(user.password)
+        hashed_password=get_password_hash(user.password),
+        balance=0.0,
+        is_admin=False,
+        is_active=True
     )
     db.add(db_user)
     db.commit()
@@ -29,7 +32,7 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=Token)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.username == form_data.username).first()
+    user = db.query(User).filter(User.username == form_data.username.lower().strip()).first()
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -37,10 +40,11 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
             headers={"WWW-Authenticate": "Bearer"},
         )
     if not user.is_active:
-        raise HTTPException(status_code=400, detail="User is inactive")
+        raise HTTPException(status_code=400, detail="User account is inactive")
 
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
+        data={"sub": user.username},
+        expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer"}
