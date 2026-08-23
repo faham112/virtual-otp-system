@@ -1,0 +1,112 @@
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session
+from typing import Optional, List
+
+from app.database import get_db
+from app.models import Setting
+from app.schemas import ALLOWED_SERVICES, ALLOWED_COUNTRIES, PriceQuote, CountryStock
+from app.auth import get_current_user
+from app.models import User
+from app.services.fivesim import FiveSimService
+
+router = APIRouter()
+
+
+def get_markup_percent(db: Session) -> float:
+    setting = db.query(Setting).filter(Setting.key == "markup_percent").first()
+    if setting:
+        try:
+            return float(setting.value)
+        except (ValueError, TypeError):
+            return 50.0
+    return 50.0
+
+
+@router.get("/price", response_model=PriceQuote)
+async def get_price_quote(
+    service: str = Query(..., description="Service e.g. whatsapp"),
+    country: str = Query("any", description="Country e.g. usa or any"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Live provider price + stock from 5sim, with FIXED system markup applied.
+    Admin sets markup once in Admin Panel → Settings.
+    """
+    service = service.lower().strip()
+    country = country.lower().strip()
+
+    if service not in ALLOWED_SERVICES:
+        raise HTTPException(status_code=400, detail=f"Invalid service: {service}")
+    if country not in ALLOWED_COUNTRIES:
+        raise HTTPException(status_code=400, detail=f"Invalid country: {country}")
+
+    markup = get_markup_percent(db)
+
+    try:
+        fivesim = FiveSimService()
+        raw = await fivesim.get_prices(
+            country=None if country == "any" else country,
+            product=service,
+        )
+        parsed = fivesim.parse_best_price(raw, country, service)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Failed to fetch prices: {str(e)}")
+
+    provider_cost = float(parsed.get("provider_cost") or 0)
+    user_price = round(provider_cost * (1 + markup / 100), 4) if provider_cost > 0 else 0.0
+
+    return PriceQuote(
+        service=service,
+        country=country,
+        available=bool(parsed.get("available")),
+        provider_cost=provider_cost,
+        user_price=user_price,
+        markup_percent=markup,
+        stock=int(parsed.get("stock") or 0),
+        total_stock=int(parsed.get("total_stock") or 0),
+        rate=float(parsed.get("rate") or 0),
+        operator=parsed.get("operator"),
+    )
+
+
+@router.get("/stock", response_model=List[CountryStock])
+async def get_country_stock(
+    service: str = Query(..., description="Service e.g. telegram"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    For a service, return stock + price for each allowed country (with markup).
+    """
+    service = service.lower().strip()
+    if service not in ALLOWED_SERVICES:
+        raise HTTPException(status_code=400, detail=f"Invalid service: {service}")
+
+    markup = get_markup_percent(db)
+    countries = [c for c in ALLOWED_COUNTRIES if c != "any"]
+    results: List[CountryStock] = []
+
+    try:
+        fivesim = FiveSimService()
+        raw = await fivesim.get_prices(product=service)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Failed to fetch stock: {str(e)}")
+
+    for c in countries:
+        parsed = fivesim.parse_best_price(raw, c, service)
+        provider_cost = float(parsed.get("provider_cost") or 0)
+        user_price = round(provider_cost * (1 + markup / 100), 4) if provider_cost > 0 else 0.0
+        results.append(
+            CountryStock(
+                country=c,
+                available=bool(parsed.get("available")),
+                stock=int(parsed.get("total_stock") or parsed.get("stock") or 0),
+                provider_cost=provider_cost,
+                user_price=user_price,
+            )
+        )
+
+    # Sort: available first, then by price
+    results.sort(key=lambda x: (not x.available, x.user_price if x.user_price else 9999))
+    return results
