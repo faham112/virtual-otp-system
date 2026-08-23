@@ -9,26 +9,26 @@ import Cookies from "js-cookie";
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 const COUNTRY_FLAGS: Record<string, string> = {
-  any: "\uD83C\uDF10",
-  england: "\uD83C\uDDEC\uD83C\uDDE7",
-  usa: "\uD83C\uDDFA\uD83C\uDDF8",
-  russia: "\uD83C\uDDF7\uD83C\uDDFA",
-  indonesia: "\uD83C\uDDEE\uD83C\uDDE9",
-  india: "\uD83C\uDDEE\uD83C\uDDF3",
-  ukraine: "\uD83C\uDDFA\uD83C\uDDE6",
-  kazakhstan: "\uD83C\uDDF0\uD83C\uDDFF",
-  philippines: "\uD83C\uDDF5\uD83C\uDDED",
-  vietnam: "\uD83C\uDDFB\uD83C\uDDF3",
-  brazil: "\uD83C\uDDE7\uD83C\uDDF7",
-  nigeria: "\uD83C\uDDF3\uD83C\uDDEC",
-  pakistan: "\uD83C\uDDF5\uD83C\uDDF0",
-  bangladesh: "\uD83C\uDDE7\uD83C\uDDE9",
-  china: "\uD83C\uDDE8\uD83C\uDDF3",
-  germany: "\uD83C\uDDE9\uD83C\uDDEA",
-  france: "\uD83C\uDDEB\uD83C\uDDF7",
-  netherlands: "\uD83C\uDDF3\uD83C\uDDF1",
-  poland: "\uD83C\uDDF5\uD83C\uDDF1",
-  spain: "\uD83C\uDDEA\uD83C\uDDF8",
+  any: "🌐",
+  england: "🇬🇧",
+  usa: "🇺🇸",
+  russia: "🇷🇺",
+  indonesia: "🇮🇩",
+  india: "🇮🇳",
+  ukraine: "🇺🇦",
+  kazakhstan: "🇰🇿",
+  philippines: "🇵🇭",
+  vietnam: "🇻🇳",
+  brazil: "🇧🇷",
+  nigeria: "🇳🇬",
+  pakistan: "🇵🇰",
+  bangladesh: "🇧🇩",
+  china: "🇨🇳",
+  germany: "🇩🇪",
+  france: "🇫🇷",
+  netherlands: "🇳🇱",
+  poland: "🇵🇱",
+  spain: "🇪🇸",
 };
 
 export default function DashboardPage() {
@@ -37,6 +37,7 @@ export default function DashboardPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [copiedId, setCopiedId] = useState<number | null>(null);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
 
   const getHeaders = () => {
@@ -63,22 +64,19 @@ export default function DashboardPage() {
       setUser(userRes.data);
       setOrders(ordersRes.data);
 
-      // Auto-check pending orders for OTP
       const pending = ordersRes.data.filter((o: any) => o.status === "pending");
       for (const order of pending) {
         try {
           const statusRes = await axios.get(`${API_URL}/api/orders/${order.id}`, { headers });
-          // Update that specific order in list
           setOrders((prev) =>
             prev.map((o) => (o.id === order.id ? statusRes.data : o))
           );
-          // Refresh user balance if refund happened
           if (["failed", "cancelled"].includes(statusRes.data.status)) {
             const freshUser = await axios.get(`${API_URL}/api/users/me`, { headers });
             setUser(freshUser.data);
           }
         } catch {
-          // ignore single order check errors
+          // ignore
         }
       }
     } catch {
@@ -92,12 +90,9 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchData();
-
-    // Poll every 8 seconds while there are pending orders
     pollRef.current = setInterval(() => {
       fetchData(true);
     }, 8000);
-
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
@@ -115,6 +110,16 @@ export default function DashboardPage() {
       fetchData();
     } catch (err: any) {
       alert(err.response?.data?.detail || "Cancel failed");
+    }
+  };
+
+  const copyOtp = async (orderId: number, code: string) => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopiedId(orderId);
+      setTimeout(() => setCopiedId(null), 1500);
+    } catch {
+      alert(code);
     }
   };
 
@@ -148,7 +153,6 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen">
-      {/* Header */}
       <header className="sticky top-0 z-20 bg-[#0f1117]/80 backdrop-blur-xl border-b border-[#2a2f3d]">
         <div className="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
@@ -190,32 +194,25 @@ export default function DashboardPage() {
                 href="/admin"
                 className="text-sm flex items-center gap-2 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/40 px-4 py-2.5 rounded-xl transition font-medium"
               >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
                 Admin Panel
               </Link>
             )}
+            <Link href="/transactions" className="btn-ghost text-sm">
+              Transactions
+            </Link>
             <button
               onClick={() => fetchData()}
               disabled={refreshing}
               className="btn-ghost text-sm flex items-center gap-1.5"
             >
-              <svg className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
               Refresh
             </button>
             <Link href="/buy" className="btn-primary text-sm flex items-center gap-2">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
               Buy Number
             </Link>
           </div>
         </div>
 
-        {/* Orders */}
         <div className="card overflow-hidden">
           <div className="px-6 py-4 border-b border-[#2a2f3d] flex items-center justify-between">
             <h2 className="font-medium text-white">Recent Orders</h2>
@@ -224,11 +221,6 @@ export default function DashboardPage() {
 
           {orders.length === 0 ? (
             <div className="p-12 text-center">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-[#12151c] flex items-center justify-center">
-                <svg className="w-8 h-8 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-                </svg>
-              </div>
               <p className="text-gray-400 mb-4">No orders yet</p>
               <Link href="/buy" className="btn-primary inline-flex text-sm">
                 Buy your first number
@@ -241,7 +233,7 @@ export default function DashboardPage() {
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex items-start gap-4">
                       <div className="text-2xl mt-0.5">
-                        {COUNTRY_FLAGS[order.country] || "\uD83C\uDF10"}
+                        {COUNTRY_FLAGS[order.country] || "🌐"}
                       </div>
                       <div>
                         <p className="font-mono font-semibold text-white text-lg tracking-wide">
@@ -264,9 +256,17 @@ export default function DashboardPage() {
                       {order.otp_code && (
                         <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl px-4 py-2">
                           <p className="text-xs text-blue-300/70 mb-0.5">OTP Code</p>
-                          <p className="font-mono font-bold text-xl text-blue-400 tracking-widest">
-                            {order.otp_code}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-mono font-bold text-xl text-blue-400 tracking-widest">
+                              {order.otp_code}
+                            </p>
+                            <button
+                              onClick={() => copyOtp(order.id, order.otp_code)}
+                              className="text-xs text-blue-300 hover:text-white border border-blue-500/30 px-2 py-0.5 rounded-lg"
+                            >
+                              {copiedId === order.id ? "Copied" : "Copy"}
+                            </button>
+                          </div>
                         </div>
                       )}
 
