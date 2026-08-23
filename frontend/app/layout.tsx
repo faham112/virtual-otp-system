@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Virtual OTP System",
-  description: "Secure multi-user virtual numbers & OTP receiving platform powered by 5sim",
+  description: "Secure multi-user virtual numbers & OTP receiving platform",
 };
 
 export default function RootLayout({
