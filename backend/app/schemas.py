@@ -97,6 +97,44 @@ class OrderOut(BaseModel):
     class Config:
         from_attributes = True
 
+class AdminOrderOut(BaseModel):
+    id: int
+    user_id: int
+    username: Optional[str] = None
+    phone_number: Optional[str]
+    service: str
+    country: str
+    cost: float
+    provider_cost: float = 0.0
+    status: str
+    otp_code: Optional[str]
+    sms_text: Optional[str]
+    created_at: datetime
+    expires_at: Optional[datetime]
+
+    class Config:
+        from_attributes = True
+
+# ========== Catalog / Prices ==========
+class PriceQuote(BaseModel):
+    service: str
+    country: str
+    available: bool
+    provider_cost: float
+    user_price: float
+    markup_percent: float
+    stock: int
+    total_stock: int = 0
+    rate: float = 0.0
+    operator: Optional[str] = None
+
+class CountryStock(BaseModel):
+    country: str
+    available: bool
+    stock: int
+    provider_cost: float
+    user_price: float
+
 # ========== Transaction ==========
 class TransactionOut(BaseModel):
     id: int
@@ -116,3 +154,7 @@ class AddBalance(BaseModel):
 
 class MarkupUpdate(BaseModel):
     markup_percent: float = Field(..., ge=0, le=500)
+
+class ToggleUser(BaseModel):
+    user_id: int
+    is_active: bool
