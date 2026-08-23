@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import axios from "axios";
@@ -9,39 +9,39 @@ import Cookies from "js-cookie";
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 const SERVICES = [
-  { value: "facebook", label: "Facebook", icon: "f" },
-  { value: "whatsapp", label: "WhatsApp", icon: "W" },
-  { value: "telegram", label: "Telegram", icon: "T" },
-  { value: "google", label: "Google", icon: "G" },
-  { value: "instagram", label: "Instagram", icon: "Ig" },
-  { value: "twitter", label: "Twitter / X", icon: "X" },
-  { value: "tiktok", label: "TikTok", icon: "Tk" },
-  { value: "discord", label: "Discord", icon: "D" },
-  { value: "microsoft", label: "Microsoft", icon: "M" },
-  { value: "amazon", label: "Amazon", icon: "A" },
+  { value: "facebook", label: "Facebook" },
+  { value: "whatsapp", label: "WhatsApp" },
+  { value: "telegram", label: "Telegram" },
+  { value: "google", label: "Google" },
+  { value: "instagram", label: "Instagram" },
+  { value: "twitter", label: "Twitter / X" },
+  { value: "tiktok", label: "TikTok" },
+  { value: "discord", label: "Discord" },
+  { value: "microsoft", label: "Microsoft" },
+  { value: "amazon", label: "Amazon" },
 ];
 
 const COUNTRIES = [
-  { value: "any", label: "Any (Cheapest)", flag: "\uD83C\uDF10" },
-  { value: "england", label: "England", flag: "\uD83C\uDDEC\uD83C\uDDE7" },
-  { value: "usa", label: "United States", flag: "\uD83C\uDDFA\uD83C\uDDF8" },
-  { value: "russia", label: "Russia", flag: "\uD83C\uDDF7\uD83C\uDDFA" },
-  { value: "indonesia", label: "Indonesia", flag: "\uD83C\uDDEE\uD83C\uDDE9" },
-  { value: "india", label: "India", flag: "\uD83C\uDDEE\uD83C\uDDF3" },
-  { value: "ukraine", label: "Ukraine", flag: "\uD83C\uDDFA\uD83C\uDDE6" },
-  { value: "kazakhstan", label: "Kazakhstan", flag: "\uD83C\uDDF0\uD83C\uDDFF" },
-  { value: "philippines", label: "Philippines", flag: "\uD83C\uDDF5\uD83C\uDDED" },
-  { value: "vietnam", label: "Vietnam", flag: "\uD83C\uDDFB\uD83C\uDDF3" },
-  { value: "brazil", label: "Brazil", flag: "\uD83C\uDDE7\uD83C\uDDF7" },
-  { value: "nigeria", label: "Nigeria", flag: "\uD83C\uDDF3\uD83C\uDDEC" },
-  { value: "pakistan", label: "Pakistan", flag: "\uD83C\uDDF5\uD83C\uDDF0" },
-  { value: "bangladesh", label: "Bangladesh", flag: "\uD83C\uDDE7\uD83C\uDDE9" },
-  { value: "china", label: "China", flag: "\uD83C\uDDE8\uD83C\uDDF3" },
-  { value: "germany", label: "Germany", flag: "\uD83C\uDDE9\uD83C\uDDEA" },
-  { value: "france", label: "France", flag: "\uD83C\uDDEB\uD83C\uDDF7" },
-  { value: "netherlands", label: "Netherlands", flag: "\uD83C\uDDF3\uD83C\uDDF1" },
-  { value: "poland", label: "Poland", flag: "\uD83C\uDDF5\uD83C\uDDF1" },
-  { value: "spain", label: "Spain", flag: "\uD83C\uDDEA\uD83C\uDDF8" },
+  { value: "any", label: "Any (Cheapest)", flag: "🌐" },
+  { value: "england", label: "England", flag: "🇬🇧" },
+  { value: "usa", label: "United States", flag: "🇺🇸" },
+  { value: "russia", label: "Russia", flag: "🇷🇺" },
+  { value: "indonesia", label: "Indonesia", flag: "🇮🇩" },
+  { value: "india", label: "India", flag: "🇮🇳" },
+  { value: "ukraine", label: "Ukraine", flag: "🇺🇦" },
+  { value: "kazakhstan", label: "Kazakhstan", flag: "🇰🇿" },
+  { value: "philippines", label: "Philippines", flag: "🇵🇭" },
+  { value: "vietnam", label: "Vietnam", flag: "🇻🇳" },
+  { value: "brazil", label: "Brazil", flag: "🇧🇷" },
+  { value: "nigeria", label: "Nigeria", flag: "🇳🇬" },
+  { value: "pakistan", label: "Pakistan", flag: "🇵🇰" },
+  { value: "bangladesh", label: "Bangladesh", flag: "🇧🇩" },
+  { value: "china", label: "China", flag: "🇨🇳" },
+  { value: "germany", label: "Germany", flag: "🇩🇪" },
+  { value: "france", label: "France", flag: "🇫🇷" },
+  { value: "netherlands", label: "Netherlands", flag: "🇳🇱" },
+  { value: "poland", label: "Poland", flag: "🇵🇱" },
+  { value: "spain", label: "Spain", flag: "🇪🇸" },
 ];
 
 export default function BuyPage() {
@@ -49,10 +49,35 @@ export default function BuyPage() {
   const [service, setService] = useState("facebook");
   const [country, setCountry] = useState("any");
   const [loading, setLoading] = useState(false);
+  const [priceLoading, setPriceLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState<any>(null);
+  const [quote, setQuote] = useState<any>(null);
 
   const selectedCountry = COUNTRIES.find((c) => c.value === country);
+
+  const fetchPrice = useCallback(async () => {
+    const token = Cookies.get("token");
+    if (!token) return;
+
+    setPriceLoading(true);
+    setQuote(null);
+    try {
+      const res = await axios.get(`${API_URL}/api/catalog/price`, {
+        params: { service, country },
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setQuote(res.data);
+    } catch {
+      setQuote(null);
+    } finally {
+      setPriceLoading(false);
+    }
+  }, [service, country]);
+
+  useEffect(() => {
+    fetchPrice();
+  }, [fetchPrice]);
 
   const handleBuy = async () => {
     setLoading(true);
@@ -66,13 +91,11 @@ export default function BuyPage() {
     }
 
     try {
-      // Only the selected country is sent — no fallback
       const res = await axios.post(
         `${API_URL}/api/orders/buy`,
         { service, country },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-
       setSuccess(res.data);
     } catch (err: any) {
       const detail = err.response?.data?.detail;
@@ -117,6 +140,7 @@ export default function BuyPage() {
                 <p className="text-3xl font-mono font-bold text-white tracking-wider">
                   {success.phone_number}
                 </p>
+                <p className="text-sm text-gray-400 mt-2">Charged: ${success.cost?.toFixed(4)}</p>
               </div>
               <p className="text-sm text-gray-400">
                 Waiting for OTP. It will appear automatically on your Dashboard.
@@ -129,6 +153,7 @@ export default function BuyPage() {
                   onClick={() => {
                     setSuccess(null);
                     setError("");
+                    fetchPrice();
                   }}
                   className="bg-[#12151c] hover:bg-[#1e2230] border border-[#2a2f3d] text-gray-300 text-sm px-5 py-2.5 rounded-xl transition"
                 >
@@ -138,7 +163,6 @@ export default function BuyPage() {
             </div>
           ) : (
             <>
-              {/* Service */}
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Service</label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -159,12 +183,11 @@ export default function BuyPage() {
                 </div>
               </div>
 
-              {/* Country with flags */}
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Country <span className="text-gray-500 font-normal">(only this country will be requested)</span>
+                  Country <span className="text-gray-500 font-normal">(only this country)</span>
                 </label>
-                <div className="grid grid-cols-1 gap-1.5 max-h-64 overflow-y-auto pr-1">
+                <div className="grid grid-cols-1 gap-1.5 max-h-56 overflow-y-auto pr-1">
                   {COUNTRIES.map((c) => (
                     <button
                       key={c.value}
@@ -188,21 +211,45 @@ export default function BuyPage() {
                 </div>
               </div>
 
-              {/* Summary */}
-              <div className="bg-[#12151c] rounded-xl p-4 border border-[#2a2f3d]">
-                <p className="text-xs text-gray-500 mb-1">You are buying</p>
+              {/* Live price box */}
+              <div className="bg-[#12151c] rounded-xl p-4 border border-[#2a2f3d] space-y-2">
+                <p className="text-xs text-gray-500">Live quote (5sim + admin markup)</p>
                 <p className="text-white font-medium">
-                  {SERVICES.find((s) => s.value === service)?.label} number
-                </p>
-                <p className="text-sm text-gray-400 mt-1 flex items-center gap-2">
-                  <span className="text-lg">{selectedCountry?.flag}</span>
+                  {SERVICES.find((s) => s.value === service)?.label} · {selectedCountry?.flag}{" "}
                   {selectedCountry?.label}
                 </p>
+
+                {priceLoading ? (
+                  <p className="text-sm text-gray-400 animate-pulse">Fetching price & stock...</p>
+                ) : quote ? (
+                  <div className="flex flex-wrap items-center gap-3 pt-1">
+                    {quote.available ? (
+                      <>
+                        <span className="text-2xl font-bold text-emerald-400">
+                          ${quote.user_price?.toFixed(4)}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          (provider ${quote.provider_cost?.toFixed(4)} + {quote.markup_percent}% markup)
+                        </span>
+                        <span className="badge bg-blue-500/15 text-blue-300 border border-blue-500/30">
+                          Stock: {quote.total_stock || quote.stock}
+                        </span>
+                        {quote.rate > 0 && (
+                          <span className="text-xs text-gray-500">Rate ~{quote.rate}%</span>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-amber-400 text-sm">Out of stock / unavailable</span>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500">Could not load price</p>
+                )}
               </div>
 
               <button
                 onClick={handleBuy}
-                disabled={loading}
+                disabled={loading || priceLoading || (quote && !quote.available)}
                 className="w-full btn-primary py-3.5 text-base"
               >
                 {loading ? (
@@ -213,14 +260,15 @@ export default function BuyPage() {
                     </svg>
                     Buying number...
                   </span>
+                ) : quote?.available ? (
+                  `Buy for $${quote.user_price?.toFixed(4)}`
                 ) : (
                   "Buy Number"
                 )}
               </button>
 
               <p className="text-xs text-center text-gray-500">
-                Cost will be calculated with markup after provider responds.
-                Full refund if OTP fails or times out.
+                Fixed system markup set by admin. Full refund if OTP fails or times out.
               </p>
             </>
           )}
