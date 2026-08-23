@@ -3,8 +3,9 @@ from sqlalchemy.orm import Session
 from typing import List
 from app.database import get_db
 from app.models import User, Order, Transaction, Setting
-from app.schemas import UserOut, AddBalance, MarkupUpdate, OrderOut
+from app.schemas import UserOut, AddBalance, MarkupUpdate, AdminOrderOut, ToggleUser
 from app.auth import get_current_admin
+from app.services.fivesim import FiveSimService
 
 router = APIRouter()
 
@@ -41,12 +42,34 @@ def add_balance(
         "new_balance": user.balance
     }
 
+@router.post("/toggle-user")
+def toggle_user(
+    data: ToggleUser,
+    admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    if data.user_id == admin.id:
+        raise HTTPException(status_code=400, detail="Cannot deactivate yourself")
+
+    user = db.query(User).filter(User.id == data.user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.is_active = data.is_active
+    db.commit()
+    status = "activated" if data.is_active else "deactivated"
+    return {"message": f"User {user.username} {status}", "is_active": user.is_active}
+
 @router.post("/set-markup")
 def set_markup(
     data: MarkupUpdate,
     admin: User = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
+    """
+    FIXED system-wide profit margin.
+    Example: 50 means user pays provider_cost * 1.50
+    """
     setting = db.query(Setting).filter(Setting.key == "markup_percent").first()
     if setting:
         setting.value = str(data.markup_percent)
@@ -54,14 +77,40 @@ def set_markup(
         setting = Setting(key="markup_percent", value=str(data.markup_percent))
         db.add(setting)
     db.commit()
-    return {"message": f"Markup set to {data.markup_percent}%"}
+    return {"message": f"Markup set to {data.markup_percent}%", "markup_percent": data.markup_percent}
 
-@router.get("/orders", response_model=List[OrderOut])
+@router.get("/orders", response_model=List[AdminOrderOut])
 def all_orders(
     admin: User = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
-    return db.query(Order).order_by(Order.created_at.desc()).limit(200).all()
+    rows = (
+        db.query(Order, User.username)
+        .outerjoin(User, Order.user_id == User.id)
+        .order_by(Order.created_at.desc())
+        .limit(200)
+        .all()
+    )
+    out = []
+    for order, username in rows:
+        out.append(
+            AdminOrderOut(
+                id=order.id,
+                user_id=order.user_id,
+                username=username,
+                phone_number=order.phone_number,
+                service=order.service,
+                country=order.country,
+                cost=order.cost,
+                provider_cost=order.provider_cost or 0.0,
+                status=order.status,
+                otp_code=order.otp_code,
+                sms_text=order.sms_text,
+                created_at=order.created_at,
+                expires_at=order.expires_at,
+            )
+        )
+    return out
 
 @router.get("/settings")
 def get_settings(
@@ -70,3 +119,12 @@ def get_settings(
 ):
     settings = db.query(Setting).all()
     return {s.key: s.value for s in settings}
+
+@router.get("/fivesim-balance")
+async def fivesim_balance(admin: User = Depends(get_current_admin)):
+    try:
+        fivesim = FiveSimService()
+        bal = await fivesim.get_balance()
+        return {"balance": bal}
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e))
