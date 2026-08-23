@@ -14,7 +14,7 @@ export default function AdminPage() {
   const [users, setUsers] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
   const [settings, setSettings] = useState<any>({});
-  const [fivesimBal, setFivesimBal] = useState<number | null>(null);
+  const [providerBal, setProviderBal] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"users" | "orders" | "settings">("users");
 
@@ -62,9 +62,9 @@ export default function AdminPage() {
 
       try {
         const balRes = await axios.get(`${API_URL}/api/admin/fivesim-balance`, { headers });
-        setFivesimBal(balRes.data.balance);
+        setProviderBal(balRes.data.balance);
       } catch {
-        setFivesimBal(null);
+        setProviderBal(null);
       }
     } catch (err: any) {
       if (err.response?.status === 401 || err.response?.status === 403) {
@@ -314,7 +314,7 @@ export default function AdminPage() {
                     <th className="px-4 py-3">Phone</th>
                     <th className="px-4 py-3">Service</th>
                     <th className="px-4 py-3">User $</th>
-                    <th className="px-4 py-3">Provider $</th>
+                    <th className="px-4 py-3">Cost $</th>
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3">OTP</th>
                     <th className="px-4 py-3">Date</th>
@@ -347,8 +347,8 @@ export default function AdminPage() {
             <div className="card p-6">
               <h2 className="font-medium text-white mb-2">Fixed Profit Markup</h2>
               <p className="text-xs text-gray-500 mb-4">
-                System-wide fixed margin. User price = provider cost × (1 + markup/100).
-                Example: provider $0.10 + 50% = user pays $0.15.
+                System-wide fixed margin. Selling price includes this markup over supply cost.
+                Example: cost $0.10 + 50% = user pays $0.15.
               </p>
               <div className="flex gap-3">
                 <input
@@ -370,11 +370,11 @@ export default function AdminPage() {
             </div>
 
             <div className="card p-6">
-              <h2 className="font-medium text-white mb-2">5sim Provider Wallet</h2>
+              <h2 className="font-medium text-white mb-2">Provider Wallet</h2>
               <p className="text-3xl font-bold text-white mt-4">
-                {fivesimBal !== null ? `$${fivesimBal.toFixed(4)}` : "—"}
+                {providerBal !== null ? `$${providerBal.toFixed(4)}` : "—"}
               </p>
-              <p className="text-xs text-gray-500 mt-2">Live balance from 5sim API</p>
+              <p className="text-xs text-gray-500 mt-2">Live supply-side balance</p>
               <p className="text-xs text-gray-500 mt-4">
                 Completed: {completedOrders} · Est. profit on completed: ${profitEst.toFixed(2)}
               </p>
