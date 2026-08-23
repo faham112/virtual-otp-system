@@ -213,7 +213,7 @@ export default function BuyPage() {
 
               {/* Live price box */}
               <div className="bg-[#12151c] rounded-xl p-4 border border-[#2a2f3d] space-y-2">
-                <p className="text-xs text-gray-500">Live quote (5sim + admin markup)</p>
+                <p className="text-xs text-gray-500">Live price & availability</p>
                 <p className="text-white font-medium">
                   {SERVICES.find((s) => s.value === service)?.label} · {selectedCountry?.flag}{" "}
                   {selectedCountry?.label}
@@ -228,15 +228,9 @@ export default function BuyPage() {
                         <span className="text-2xl font-bold text-emerald-400">
                           ${quote.user_price?.toFixed(4)}
                         </span>
-                        <span className="text-xs text-gray-500">
-                          (provider ${quote.provider_cost?.toFixed(4)} + {quote.markup_percent}% markup)
-                        </span>
                         <span className="badge bg-blue-500/15 text-blue-300 border border-blue-500/30">
                           Stock: {quote.total_stock || quote.stock}
                         </span>
-                        {quote.rate > 0 && (
-                          <span className="text-xs text-gray-500">Rate ~{quote.rate}%</span>
-                        )}
                       </>
                     ) : (
                       <span className="text-amber-400 text-sm">Out of stock / unavailable</span>
@@ -268,7 +262,7 @@ export default function BuyPage() {
               </button>
 
               <p className="text-xs text-center text-gray-500">
-                Fixed system markup set by admin. Full refund if OTP fails or times out.
+                Full refund if OTP fails or times out.
               </p>
             </>
           )}
