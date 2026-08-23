@@ -38,7 +38,7 @@ export default function Home() {
         </div>
 
         <p className="mt-10 text-xs text-gray-500">
-          Powered by 5sim · FastAPI · Next.js
+          Secure virtual numbers platform
         </p>
       </div>
     </div>
