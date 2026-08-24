@@ -1,22 +1,22 @@
 # Virtual OTP System
 
 Multi-user Virtual Number / OTP Receiving System  
-**FastAPI** + **Next.js 15** + **5sim.net** + **PostgreSQL / SQLite**
+**FastAPI** + **Next.js 15** + **PostgreSQL / SQLite**
 
-Version **2.1** — Railway ready, PostgreSQL support, interactive `setup.sh`, seed system, advanced UI.
+Version **2.2** — Admin panel, live prices/stock, fixed markup, Railway + **Linux VPS** ready.
 
 ---
 
 ## Features
 
 - Multi-user JWT auth + wallet system
-- Admin markup / balance control
+- Admin panel (users, balance, markup, orders, provider wallet)
 - **Seed system** — admin + tables auto from `.env`
-- Real-time OTP polling (8s)
-- Country flags + strict country only
+- Live price & stock before buy
+- Real-time OTP polling (8s) + copy OTP
 - Full refund on timeout / fail
 - Race-condition safe balance
-- Railway + PostgreSQL production ready
+- Railway + PostgreSQL + **full VPS/Nginx guide**
 
 ---
 
@@ -26,39 +26,21 @@ Version **2.1** — Railway ready, PostgreSQL support, interactive `setup.sh`, s
 git clone https://github.com/faham112/virtual-otp-system.git
 cd virtual-otp-system
 
-# Interactive wizard — asks for keys, creates .env, ready for seed
-bash setup.sh
-
-# Backend
-cd backend
-python -m venv venv && source venv/bin/activate   # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
-
-# Frontend (new terminal)
-cd frontend
-npm install && npm run dev
+bash setup.sh      # .env + admin credentials
+bash install.sh    # all packages
+bash start.sh      # frontend + backend
 ```
 
-Open http://localhost:3000 — login with admin credentials you entered in `setup.sh`.
-
-Seed (tables + admin) **automatically** runs on first backend start.
+Open http://localhost:3000
 
 ---
 
-## Railway Deployment (Frontend + Backend + Postgres)
+## Production deploy
 
-Full guide: **[RAILWAY.md](./RAILWAY.md)**
-
-Short version:
-
-1. Railway pe New Project
-2. **+ Database → PostgreSQL** (alag service)
-3. **Backend** service — Root Directory = `backend`  
-   Variables: `DATABASE_URL=${{Postgres.DATABASE_URL}}` + SECRET_KEY, FIVESIM_API_KEY, ADMIN_*, CORS_ORIGINS
-4. **Frontend** service — Root Directory = `frontend`  
-   Variable: `NEXT_PUBLIC_API_URL=https://your-backend.up.railway.app`
-5. Deploy → seed auto-chalega → admin ready
+| Guide | Use case |
+|-------|----------|
+| **[LINUX_VPS_SETUP.md](./LINUX_VPS_SETUP.md)** | **Full VPS / RDP: clone → PostgreSQL → build → Nginx → domain → SSL** |
+| [RAILWAY.md](./RAILWAY.md) | Railway cloud (Postgres + backend + frontend) |
 
 ---
 
@@ -66,22 +48,11 @@ Short version:
 
 ```
 virtual-otp-system/
-├── setup.sh                 # Interactive .env + seed wizard
-├── RAILWAY.md               # Full Railway guide
-├── backend/
-│   ├── app/
-│   │   ├── main.py
-│   │   ├── seed.py
-│   │   ├── database.py      # SQLite + MySQL + PostgreSQL
-│   │   └── ...
-│   ├── requirements.txt
-│   ├── railway.toml
-│   └── Procfile
-├── frontend/
-│   ├── app/
-│   ├── railway.toml
-│   └── ...
-└── README.md
+├── setup.sh / install.sh / start.sh
+├── LINUX_VPS_SETUP.md       # Full Linux server guide
+├── RAILWAY.md
+├── backend/                 # FastAPI (port 8000)
+└── frontend/                # Next.js (port 3000)
 ```
 
 ---
