@@ -12,39 +12,182 @@ Iske baad project **IP** ya **domain** pe fully live: Frontend + Backend + Postg
 | Aap kya kharidte ho | Kya karna hai | Setup |
 |---------------------|---------------|--------|
 | **Linux VPS** (Ubuntu/Debian) — SSH only | Seedha SSH se connect | **Yahi guide** — same steps |
-| **Linux RDP** (Ubuntu desktop + remote desktop) | RDP se desktop kholo, phir **Terminal** kholo | **Yahi guide** — commands same |
-| **Windows RDP** | Production ke liye **recommended nahi** | Linux VPS lo, ya neeche note dekho |
+| **Linux RDP** (Ubuntu desktop + remote desktop) | Pehle **SSH on** karo (neeche section), phir Termux / PC se SSH | **Yahi guide** |
+| **Windows RDP** | Production ke liye **recommended nahi** | Linux VPS lo |
 
 ### Easy recommendation
 
-1. **Best / easiest:** Linux **VPS** (Ubuntu 22.04/24.04) — Contabo, Hetzner, DigitalOcean, Linode, Hostinger VPS, etc.
-2. **Agar GUI chahiye:** Ubuntu VPS lo + optional desktop/RDP install (phir bhi saari commands **Terminal / SSH** se Linux pe).
-3. **Windows RDP mat lo** is project ke production ke liye — Nginx, systemd, PostgreSQL, certbot sab Linux flow pe designed hain.
+1. **Best:** Linux **VPS** (Ubuntu 22.04/24.04) — aksar SSH pehle se on hota hai.
+2. **Linux RDP:** Desktop se kaam chal sakta hai, lekin **SSH on karna lazim** hai taake Termux / phone / PC se bhi commands chalain.
+3. **Windows RDP mat lo** is project ke production ke liye.
 
-### Agar paas pehle se Windows RDP hai
-
-- Production website **Windows pe mat chalao** is guide se.
-- Options:
-  - Alag **Linux VPS** buy karo (recommended), **ya**
-  - Windows ke andar **WSL2 (Ubuntu)** install karke Linux jaisa setup (advanced; production ke liye alag full VPS better).
-
-### Linux RDP / VPS dono pe flow same hai
+### Linux RDP / VPS dono pe app setup same hai
 
 ```
-Connect (SSH ya Linux desktop Terminal)
+SSH (Termux/PC)  YA  Linux RDP Terminal
         │
         ▼
   Ubuntu/Debian Linux
         │
         ▼
-  Yahi document ke saare steps
-  (clone → postgres → build → nginx → domain)
+  Clone → postgres → build → nginx → domain
 ```
 
-- **SSH se connect:** `ssh user@YOUR_SERVER_IP`
-- **Linux RDP se connect:** Remote Desktop → Ubuntu desktop → **Terminal** app kholo → wahi commands
+---
 
-Neeche se **Step 0** se start karo — RDP ho ya VPS, Linux pe commands **ek jaisi** hain.
+## SSH setup on Linux RDP (lazim — Termux ke liye bhi)
+
+Agar aapke paas **Linux RDP** hai (Ubuntu desktop), pehle machine pe **OpenSSH server** chalao.  
+Iske baad aap:
+
+- PC se: `ssh user@IP`
+- **Termux (Android)** se: same `ssh user@IP`
+- RDP desktop se: Terminal app
+
+### A. RDP se login karke SSH install karo
+
+Linux RDP desktop kholo → **Terminal** open karo → yeh commands:
+
+```bash
+# 1) System update
+sudo apt update && sudo apt upgrade -y
+
+# 2) OpenSSH server install
+sudo apt install -y openssh-server
+
+# 3) Enable + start
+sudo systemctl enable ssh
+sudo systemctl start ssh
+sudo systemctl status ssh --no-pager
+```
+
+Status mein `active (running)` dikhna chahiye.
+
+### B. Firewall pe port 22 allow
+
+```bash
+sudo ufw allow OpenSSH
+# ya
+sudo ufw allow 22/tcp
+
+sudo ufw enable
+sudo ufw status
+```
+
+### C. Apna username aur IP note karo
+
+```bash
+# Username (SSH login ke liye)
+whoami
+
+# Server IP (public)
+curl -4 ifconfig.me
+echo
+
+# SSH listen kar raha hai?
+ss -tlnp | grep ':22'
+```
+
+Provider panel se bhi **Public IP** dekh lo.
+
+### D. Password se login allow? (default Ubuntu)
+
+Zyada tar Ubuntu pe password SSH allowed hota hai. Check:
+
+```bash
+grep -E '^PasswordAuthentication|^#PasswordAuthentication' /etc/ssh/sshd_config
+```
+
+Agar `PasswordAuthentication no` hai aur aap password se login chahte ho:
+
+```bash
+sudo sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
+sudo systemctl restart ssh
+```
+
+**Zyada secure:** baad mein SSH keys use karo (neeche optional section).
+
+### E. PC se test (Windows / Mac / Linux)
+
+```bash
+ssh YOUR_USERNAME@YOUR_SERVER_IP
+# pehli baar: yes
+# phir Linux user ka password
+```
+
+### F. Termux se SSH (Android)
+
+Phone pe **Termux** install karo (F-Droid recommended).
+
+```bash
+# Termux ke andar
+pkg update && pkg upgrade -y
+pkg install -y openssh
+
+# Server se connect
+ssh YOUR_USERNAME@YOUR_SERVER_IP
+```
+
+Example:
+
+```bash
+ssh ubuntu@203.0.113.45
+# ya
+ssh faheem@YOUR_SERVER_IP
+```
+
+Password enter karo → Linux shell mil jayega → ab **yahi guide** ke Step 0 se project setup chalao.
+
+### G. Optional: SSH key (password-less, safer)
+
+**Termux / PC pe key banao:**
+
+```bash
+ssh-keygen -t ed25519 -C "termux-otp"
+# Enter Enter (default path)
+```
+
+**Public key server pe copy:**
+
+```bash
+# Termux/PC se (password ek dafa maangega)
+ssh-copy-id YOUR_USERNAME@YOUR_SERVER_IP
+```
+
+Agar `ssh-copy-id` na ho (Termux):
+
+```bash
+cat ~/.ssh/id_ed25519.pub | ssh YOUR_USERNAME@YOUR_SERVER_IP "mkdir -p ~/.ssh && chmod 700 ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
+```
+
+Phir:
+
+```bash
+ssh YOUR_USERNAME@YOUR_SERVER_IP
+# password ke baghair login
+```
+
+### H. Linux VPS pe SSH pehle se hai?
+
+Haan — aksar providers **root** ya `ubuntu` user + SSH key/password dete hain.  
+Phir bhi check:
+
+```bash
+sudo systemctl status ssh --no-pager || sudo systemctl status sshd --no-pager
+```
+
+Band ho to upar wale **install + enable** steps chalao.
+
+### I. Common SSH problems
+
+| Problem | Fix |
+|---------|-----|
+| Connection refused | `sudo systemctl start ssh` + UFW `allow 22` |
+| Timeout | Provider firewall / security group mein port **22** open karo |
+| Permission denied | Sahi username + password; `whoami` RDP Terminal se dekho |
+| Termux connect nahi | Phone wifi/data se server IP reachable? VPS public IP use karo |
+
+**Provider panel:** kai VPS/RDP panels mein alag “Firewall / Security” hota hai — wahan **TCP 22** allow karna zaroori ho sakta hai (UFW ke saath).
 
 ---
 
@@ -78,20 +221,21 @@ Replace `yourdomain.com` aur `YOUR_SERVER_IP` apni values se.
 
 ---
 
-## 0. Server prepare (first login — Linux only)
+## 0. Server prepare (SSH ya RDP Terminal — Linux only)
 
-SSH ya Linux Terminal mein:
+Ab aap **SSH (Termux/PC)** se connected ho, ya RDP Terminal mein ho — same commands:
 
 ```bash
 sudo apt update && sudo apt upgrade -y
 
-# Basic tools
 sudo apt install -y git curl wget ufw build-essential \
   python3 python3-venv python3-pip \
   nginx postgresql postgresql-contrib \
-  certbot python3-certbot-nginx
+  certbot python3-certbot-nginx openssh-server
 
-# Firewall
+sudo systemctl enable ssh
+sudo systemctl start ssh
+
 sudo ufw allow OpenSSH
 sudo ufw allow 'Nginx Full'
 sudo ufw --force enable
@@ -100,7 +244,7 @@ sudo ufw status
 
 ---
 
-## 1. Clone project (VPS / Linux RDP — same)
+## 1. Clone project
 
 ```bash
 sudo mkdir -p /var/www
@@ -108,12 +252,10 @@ cd /var/www
 sudo git clone https://github.com/faham112/virtual-otp-system.git
 sudo chown -R $USER:$USER /var/www/virtual-otp-system
 cd /var/www/virtual-otp-system
-
-# Latest code
 git pull origin main
 ```
 
-Private repo ho to SSH key ya personal access token:
+Private repo:
 
 ```bash
 git clone https://<TOKEN>@github.com/faham112/virtual-otp-system.git
@@ -121,45 +263,35 @@ git clone https://<TOKEN>@github.com/faham112/virtual-otp-system.git
 
 ---
 
-## 2. Install Node.js 20 (frontend build)
+## 2. Node.js 20
 
 ```bash
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt install -y nodejs
-node -v   # v20.x
-npm -v
+node -v && npm -v
 ```
 
 ---
 
-## 3. PostgreSQL setup
+## 3. PostgreSQL
 
 ```bash
 sudo systemctl enable postgresql
 sudo systemctl start postgresql
 
-# Create DB user + database
 sudo -u postgres psql <<'EOF'
 CREATE USER otpuser WITH PASSWORD 'CHANGE_THIS_STRONG_PASSWORD';
 CREATE DATABASE virtual_otp OWNER otpuser;
 GRANT ALL PRIVILEGES ON DATABASE virtual_otp TO otpuser;
 \q
 EOF
-```
 
-PostgreSQL 15+ pe:
-
-```bash
 sudo -u postgres psql -d virtual_otp -c "GRANT ALL ON SCHEMA public TO otpuser;"
 ```
-
-**Connection string:**
 
 ```text
 postgresql://otpuser:CHANGE_THIS_STRONG_PASSWORD@127.0.0.1:5432/virtual_otp
 ```
-
-Test:
 
 ```bash
 psql "postgresql://otpuser:CHANGE_THIS_STRONG_PASSWORD@127.0.0.1:5432/virtual_otp" -c "SELECT 1;"
@@ -167,92 +299,58 @@ psql "postgresql://otpuser:CHANGE_THIS_STRONG_PASSWORD@127.0.0.1:5432/virtual_ot
 
 ---
 
-## 4. Backend environment + packages
+## 4. Backend
 
 ```bash
 cd /var/www/virtual-otp-system/backend
-
 python3 -m venv venv
 source venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
-```
-
-### Create `backend/.env`
-
-```bash
-nano /var/www/virtual-otp-system/backend/.env
+nano .env
 ```
 
 ```env
 DATABASE_URL=postgresql://otpuser:CHANGE_THIS_STRONG_PASSWORD@127.0.0.1:5432/virtual_otp
-
 SECRET_KEY=PASTE_LONG_RANDOM_64_CHAR_SECRET_HERE
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=1440
-
 FIVESIM_API_KEY=your_real_5sim_api_key
-
 DEFAULT_MARKUP_PERCENT=50
-
 ADMIN_USERNAME=admin
 ADMIN_EMAIL=admin@yourdomain.com
 ADMIN_PASSWORD=Admin@Secure123!
-
-# Domain:
 CORS_ORIGINS=https://yourdomain.com,http://yourdomain.com
-
-# Sirf IP test:
-# CORS_ORIGINS=http://YOUR_SERVER_IP,http://127.0.0.1:3000
 ```
-
-Secret generate:
 
 ```bash
 python3 -c "import secrets; print(secrets.token_hex(32))"
-```
-
-```bash
-chmod 600 /var/www/virtual-otp-system/backend/.env
+chmod 600 .env
 ```
 
 ---
 
-## 5. Frontend env + install + **build**
+## 5. Frontend build
 
 ```bash
 cd /var/www/virtual-otp-system/frontend
 nano .env.production
 ```
 
-**Domain:**
-
 ```env
 NEXT_PUBLIC_API_URL=https://yourdomain.com
-```
-
-**IP only:**
-
-```env
-NEXT_PUBLIC_API_URL=http://YOUR_SERVER_IP
+# IP only: NEXT_PUBLIC_API_URL=http://YOUR_SERVER_IP
 ```
 
 ```bash
-npm install
-npm run build
+npm install && npm run build
 ```
-
-Build ke baad `.next` folder production serve karega.
 
 ---
 
-## 6. Systemd (auto-start — Linux VPS aur Linux RDP dono)
+## 6. Systemd services
 
-### Backend
-
-```bash
-sudo nano /etc/systemd/system/otp-backend.service
-```
+`/etc/systemd/system/otp-backend.service`:
 
 ```ini
 [Unit]
@@ -273,11 +371,7 @@ RestartSec=3
 WantedBy=multi-user.target
 ```
 
-### Frontend
-
-```bash
-sudo nano /etc/systemd/system/otp-frontend.service
-```
+`/etc/systemd/system/otp-frontend.service`:
 
 ```ini
 [Unit]
@@ -301,46 +395,29 @@ WantedBy=multi-user.target
 
 ```bash
 sudo chown -R www-data:www-data /var/www/virtual-otp-system
-
 sudo systemctl daemon-reload
-sudo systemctl enable otp-backend otp-frontend
-sudo systemctl start otp-backend
-sudo systemctl start otp-frontend
-
-sudo systemctl status otp-backend --no-pager
-sudo systemctl status otp-frontend --no-pager
-```
-
-Seed (tables + admin) pehli backend start pe auto.
-
-```bash
+sudo systemctl enable --now otp-backend otp-frontend
+sudo systemctl status otp-backend otp-frontend --no-pager
 curl -s http://127.0.0.1:8000/health
-curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:3000
 ```
 
 ---
 
-## 7. Nginx reverse proxy
+## 7. Nginx
 
 ```bash
 sudo nano /etc/nginx/sites-available/virtual-otp
 ```
 
 ```nginx
-upstream otp_api {
-    server 127.0.0.1:8000;
-}
-
-upstream otp_web {
-    server 127.0.0.1:3000;
-}
+upstream otp_api { server 127.0.0.1:8000; }
+upstream otp_web { server 127.0.0.1:3000; }
 
 server {
     listen 80;
     listen [::]:80;
-
     server_name yourdomain.com www.yourdomain.com;
-    # IP only: server_name YOUR_SERVER_IP;
+    # server_name YOUR_SERVER_IP;
 
     client_max_body_size 10M;
 
@@ -362,15 +439,8 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    location /openapi.json {
-        proxy_pass http://otp_api;
-        proxy_set_header Host $host;
-    }
-
-    location /health {
-        proxy_pass http://otp_api;
-        proxy_set_header Host $host;
-    }
+    location /openapi.json { proxy_pass http://otp_api; proxy_set_header Host $host; }
+    location /health { proxy_pass http://otp_api; proxy_set_header Host $host; }
 
     location / {
         proxy_pass http://otp_web;
@@ -388,25 +458,10 @@ server {
 ```bash
 sudo ln -sf /etc/nginx/sites-available/virtual-otp /etc/nginx/sites-enabled/
 sudo rm -f /etc/nginx/sites-enabled/default
-sudo nginx -t
-sudo systemctl reload nginx
+sudo nginx -t && sudo systemctl reload nginx
 ```
 
-Frontend `.env.production`:
-
-```env
-NEXT_PUBLIC_API_URL=https://yourdomain.com
-```
-
-Rebuild + restart:
-
-```bash
-cd /var/www/virtual-otp-system/frontend
-sudo chown -R $USER:$USER .
-npm run build
-sudo chown -R www-data:www-data /var/www/virtual-otp-system
-sudo systemctl restart otp-frontend otp-backend
-```
+Env change ke baad frontend rebuild + `sudo systemctl restart otp-frontend otp-backend`.
 
 ---
 
@@ -417,109 +472,50 @@ sudo systemctl restart otp-frontend otp-backend
 | A | `@` | `YOUR_SERVER_IP` |
 | A | `www` | `YOUR_SERVER_IP` |
 
-```bash
-dig +short yourdomain.com
-```
-
 ---
 
-## 9. SSL (HTTPS)
+## 9. SSL
 
 ```bash
 sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com
-sudo certbot renew --dry-run
 ```
-
-HTTPS ke baad CORS + `NEXT_PUBLIC_API_URL` https rakho → frontend rebuild → services restart.
 
 ---
 
-## 10. Launch checklist
+## 10–14. Checklist, updates, IP-only, troubleshoot, security
 
 ```bash
-sudo systemctl status otp-backend otp-frontend nginx postgresql --no-pager
-ss -tlnp | grep -E ':80|:443|:3000|:8000|:5432'
+sudo systemctl status otp-backend otp-frontend nginx postgresql ssh --no-pager
 curl -s http://127.0.0.1:8000/health
-curl -I https://yourdomain.com
 ```
 
-Browser: site → admin login → Admin Panel → markup / balance → Buy Number.
-
----
-
-## 11. Code update later
+**Update code:**
 
 ```bash
-cd /var/www/virtual-otp-system
-sudo chown -R $USER:$USER .
-git pull origin main
-
+cd /var/www/virtual-otp-system && sudo chown -R $USER:$USER . && git pull origin main
 cd backend && source venv/bin/activate && pip install -r requirements.txt && deactivate
 cd ../frontend && npm install && npm run build
-
-cd /var/www/virtual-otp-system
-sudo chown -R www-data:www-data .
-sudo systemctl restart otp-backend otp-frontend
-sudo systemctl reload nginx
+sudo chown -R www-data:www-data /var/www/virtual-otp-system
+sudo systemctl restart otp-backend otp-frontend && sudo systemctl reload nginx
 ```
 
----
-
-## 12. IP-only (no domain)
-
-1. Nginx: `server_name YOUR_SERVER_IP;`
-2. Frontend: `NEXT_PUBLIC_API_URL=http://YOUR_SERVER_IP`
-3. Backend: `CORS_ORIGINS=http://YOUR_SERVER_IP`
-4. Rebuild frontend + restart all
-5. Open `http://YOUR_SERVER_IP`
-
-HTTPS ke liye domain zaroori hai.
+**Security:** strong passwords, `.env` chmod 600, UFW 22/80/443, Postgres localhost only.
 
 ---
 
-## 13. Troubleshooting
-
-```bash
-sudo journalctl -u otp-backend -n 100 --no-pager
-sudo journalctl -u otp-frontend -n 50 --no-pager
-sudo nginx -t
-sudo tail -50 /var/log/nginx/error.log
-sudo systemctl status postgresql
-```
-
-CORS: origin exact match + rebuild after env change.  
-Permissions: `sudo chown -R www-data:www-data /var/www/virtual-otp-system`
-
----
-
-## 14. Security
-
-1. Strong passwords + `SECRET_KEY`
-2. `.env` → `chmod 600`, git pe mat daalo
-3. UFW: 22, 80, 443
-4. PostgreSQL localhost only
-5. Apps bind `127.0.0.1` — public sirf Nginx
-
----
-
-## Quick summary
+## Quick flow (RDP + Termux + full app)
 
 ```text
-Buy → Linux VPS (Ubuntu)  YA  Linux RDP (Ubuntu desktop)
-         │
-         ▼
-   Terminal / SSH  (sab Linux commands)
-         │
-         ▼
-   Clone → PostgreSQL → backend .env → npm build
-         → systemd → Nginx → Domain → SSL
-         │
-         ▼
-   https://yourdomain.com  LIVE
+1. Linux RDP kholo (desktop)
+2. Terminal → OpenSSH install + UFW allow 22
+3. Termux / PC → ssh user@SERVER_IP
+4. SSH session mein → clone → postgres → backend → npm build
+5. systemd + nginx + domain + SSL
+6. https://yourdomain.com LIVE
 ```
 
-**Windows RDP = is production guide ka target nahi.**  
-**Linux VPS aur Linux RDP = same setup, yehi document.**
+**SSH RDP pe lazim** taake Termux se bhi same server control ho.  
+**App setup** har haal mein **Linux commands** se — yehi document.
 
 ---
 
@@ -528,7 +524,7 @@ Buy → Linux VPS (Ubuntu)  YA  Linux RDP (Ubuntu desktop)
 | File | Purpose |
 |------|---------|
 | `setup.sh` / `install.sh` / `start.sh` | Local Linux dev |
-| `RAILWAY.md` | Cloud (Railway) |
-| **`LINUX_VPS_SETUP.md`** | **Production Linux VPS / Linux RDP** |
+| `RAILWAY.md` | Cloud |
+| **`LINUX_VPS_SETUP.md`** | **VPS + Linux RDP + SSH/Termux + production** |
 
-**Done.** Poora launch Linux server pe isi guide se.
+**Done.**
