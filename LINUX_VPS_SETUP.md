@@ -1,7 +1,50 @@
-# Virtual OTP System — Full Linux VPS / RDP Setup Guide (A → Z)
+# Virtual OTP System — Full Linux Server Setup (VPS / RDP)
 
-Yeh guide **Ubuntu 22.04 / 24.04** (ya Debian) VPS / RDP ke liye hai.  
-Iske baad project **IP** ya **domain** pe fully live chalega: Frontend + Backend + PostgreSQL + Nginx.
+**Poora setup Linux pe chalega.** Windows pe production deploy is guide ka hissa nahi hai.
+
+Yeh guide **Ubuntu 22.04 / 24.04** (ya Debian) ke liye hai.  
+Iske baad project **IP** ya **domain** pe fully live: Frontend + Backend + PostgreSQL + Nginx.
+
+---
+
+## RDP buy karo ya Linux VPS? (pehle yeh samjho)
+
+| Aap kya kharidte ho | Kya karna hai | Setup |
+|---------------------|---------------|--------|
+| **Linux VPS** (Ubuntu/Debian) — SSH only | Seedha SSH se connect | **Yahi guide** — same steps |
+| **Linux RDP** (Ubuntu desktop + remote desktop) | RDP se desktop kholo, phir **Terminal** kholo | **Yahi guide** — commands same |
+| **Windows RDP** | Production ke liye **recommended nahi** | Linux VPS lo, ya neeche note dekho |
+
+### Easy recommendation
+
+1. **Best / easiest:** Linux **VPS** (Ubuntu 22.04/24.04) — Contabo, Hetzner, DigitalOcean, Linode, Hostinger VPS, etc.
+2. **Agar GUI chahiye:** Ubuntu VPS lo + optional desktop/RDP install (phir bhi saari commands **Terminal / SSH** se Linux pe).
+3. **Windows RDP mat lo** is project ke production ke liye — Nginx, systemd, PostgreSQL, certbot sab Linux flow pe designed hain.
+
+### Agar paas pehle se Windows RDP hai
+
+- Production website **Windows pe mat chalao** is guide se.
+- Options:
+  - Alag **Linux VPS** buy karo (recommended), **ya**
+  - Windows ke andar **WSL2 (Ubuntu)** install karke Linux jaisa setup (advanced; production ke liye alag full VPS better).
+
+### Linux RDP / VPS dono pe flow same hai
+
+```
+Connect (SSH ya Linux desktop Terminal)
+        │
+        ▼
+  Ubuntu/Debian Linux
+        │
+        ▼
+  Yahi document ke saare steps
+  (clone → postgres → build → nginx → domain)
+```
+
+- **SSH se connect:** `ssh user@YOUR_SERVER_IP`
+- **Linux RDP se connect:** Remote Desktop → Ubuntu desktop → **Terminal** app kholo → wahi commands
+
+Neeche se **Step 0** se start karo — RDP ho ya VPS, Linux pe commands **ek jaisi** hain.
 
 ---
 
@@ -35,7 +78,9 @@ Replace `yourdomain.com` aur `YOUR_SERVER_IP` apni values se.
 
 ---
 
-## 0. Server prepare (first login)
+## 0. Server prepare (first login — Linux only)
+
+SSH ya Linux Terminal mein:
 
 ```bash
 sudo apt update && sudo apt upgrade -y
@@ -55,7 +100,7 @@ sudo ufw status
 
 ---
 
-## 1. Clone project into VPS / RDP
+## 1. Clone project (VPS / Linux RDP — same)
 
 ```bash
 sudo mkdir -p /var/www
@@ -68,7 +113,7 @@ cd /var/www/virtual-otp-system
 git pull origin main
 ```
 
-Private repo ho to SSH key ya personal access token use karo:
+Private repo ho to SSH key ya personal access token:
 
 ```bash
 git clone https://<TOKEN>@github.com/faham112/virtual-otp-system.git
@@ -76,7 +121,7 @@ git clone https://<TOKEN>@github.com/faham112/virtual-otp-system.git
 
 ---
 
-## 2. Install Node.js 20 (frontend build ke liye)
+## 2. Install Node.js 20 (frontend build)
 
 ```bash
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
@@ -102,13 +147,13 @@ GRANT ALL PRIVILEGES ON DATABASE virtual_otp TO otpuser;
 EOF
 ```
 
-PostgreSQL 15+ pe schema access bhi do:
+PostgreSQL 15+ pe:
 
 ```bash
 sudo -u postgres psql -d virtual_otp -c "GRANT ALL ON SCHEMA public TO otpuser;"
 ```
 
-**Connection string (backend ke liye):**
+**Connection string:**
 
 ```text
 postgresql://otpuser:CHANGE_THIS_STRONG_PASSWORD@127.0.0.1:5432/virtual_otp
@@ -139,8 +184,6 @@ pip install -r requirements.txt
 nano /var/www/virtual-otp-system/backend/.env
 ```
 
-Paste (values replace karo):
-
 ```env
 DATABASE_URL=postgresql://otpuser:CHANGE_THIS_STRONG_PASSWORD@127.0.0.1:5432/virtual_otp
 
@@ -156,20 +199,18 @@ ADMIN_USERNAME=admin
 ADMIN_EMAIL=admin@yourdomain.com
 ADMIN_PASSWORD=Admin@Secure123!
 
-# Domain use kar rahe ho to:
+# Domain:
 CORS_ORIGINS=https://yourdomain.com,http://yourdomain.com
 
-# Sirf IP se test karna ho to (example):
+# Sirf IP test:
 # CORS_ORIGINS=http://YOUR_SERVER_IP,http://127.0.0.1:3000
 ```
 
-Random `SECRET_KEY` generate:
+Secret generate:
 
 ```bash
 python3 -c "import secrets; print(secrets.token_hex(32))"
 ```
-
-Permissions:
 
 ```bash
 chmod 600 /var/www/virtual-otp-system/backend/.env
@@ -177,45 +218,37 @@ chmod 600 /var/www/virtual-otp-system/backend/.env
 
 ---
 
-## 5. Frontend environment + install + **build**
-
-### Production env (build time pe use hota hai)
+## 5. Frontend env + install + **build**
 
 ```bash
 cd /var/www/virtual-otp-system/frontend
-
 nano .env.production
 ```
 
-**Domain mode:**
+**Domain:**
 
 ```env
 NEXT_PUBLIC_API_URL=https://yourdomain.com
 ```
 
-**IP-only mode (no domain yet):**
+**IP only:**
 
 ```env
 NEXT_PUBLIC_API_URL=http://YOUR_SERVER_IP
 ```
 
-> Note: `/api` Nginx se backend pe proxy hoga, is liye `NEXT_PUBLIC_API_URL` domain/IP root rakhna best hai (neeche Nginx config dekho).
-
-### Install + build
-
 ```bash
-cd /var/www/virtual-otp-system/frontend
 npm install
 npm run build
 ```
 
-Build success ke baad `.next` folder ban jata hai — yahi production serve hota hai.
+Build ke baad `.next` folder production serve karega.
 
 ---
 
-## 6. Systemd services (auto-start backend + frontend)
+## 6. Systemd (auto-start — Linux VPS aur Linux RDP dono)
 
-### Backend service
+### Backend
 
 ```bash
 sudo nano /etc/systemd/system/otp-backend.service
@@ -240,7 +273,7 @@ RestartSec=3
 WantedBy=multi-user.target
 ```
 
-### Frontend service
+### Frontend
 
 ```bash
 sudo nano /etc/systemd/system/otp-frontend.service
@@ -266,10 +299,7 @@ RestartSec=3
 WantedBy=multi-user.target
 ```
 
-### Permissions + start
-
 ```bash
-# www-data ko project access
 sudo chown -R www-data:www-data /var/www/virtual-otp-system
 
 sudo systemctl daemon-reload
@@ -277,19 +307,11 @@ sudo systemctl enable otp-backend otp-frontend
 sudo systemctl start otp-backend
 sudo systemctl start otp-frontend
 
-# Status check
 sudo systemctl status otp-backend --no-pager
 sudo systemctl status otp-frontend --no-pager
-
-# Logs
-sudo journalctl -u otp-backend -f
-# Ctrl+C to exit
-sudo journalctl -u otp-frontend -n 50 --no-pager
 ```
 
-Backend seed (tables + admin) **pehli start** pe auto chalta hai.
-
-Local test (server pe):
+Seed (tables + admin) pehli backend start pe auto.
 
 ```bash
 curl -s http://127.0.0.1:8000/health
@@ -298,16 +320,13 @@ curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:3000
 
 ---
 
-## 7. Nginx — reverse proxy (IP + domain)
-
-### Site config
+## 7. Nginx reverse proxy
 
 ```bash
 sudo nano /etc/nginx/sites-available/virtual-otp
 ```
 
 ```nginx
-# Upstream backends (local only)
 upstream otp_api {
     server 127.0.0.1:8000;
 }
@@ -320,15 +339,11 @@ server {
     listen 80;
     listen [::]:80;
 
-    # Domain:
     server_name yourdomain.com www.yourdomain.com;
-
-    # Agar abhi sirf IP use kar rahe ho:
-    # server_name YOUR_SERVER_IP;
+    # IP only: server_name YOUR_SERVER_IP;
 
     client_max_body_size 10M;
 
-    # ----- API (FastAPI) -----
     location /api/ {
         proxy_pass http://otp_api;
         proxy_http_version 1.1;
@@ -339,7 +354,6 @@ server {
         proxy_read_timeout 120s;
     }
 
-    # Optional: docs / health directly
     location /docs {
         proxy_pass http://otp_api;
         proxy_set_header Host $host;
@@ -358,7 +372,6 @@ server {
         proxy_set_header Host $host;
     }
 
-    # ----- Frontend (Next.js) -----
     location / {
         proxy_pass http://otp_web;
         proxy_http_version 1.1;
@@ -372,8 +385,6 @@ server {
 }
 ```
 
-Enable site:
-
 ```bash
 sudo ln -sf /etc/nginx/sites-available/virtual-otp /etc/nginx/sites-enabled/
 sudo rm -f /etc/nginx/sites-enabled/default
@@ -381,129 +392,71 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-### Important: Frontend API URL vs Nginx
-
-Is config mein:
-
-- Browser → `https://yourdomain.com` → Next.js
-- Browser → `https://yourdomain.com/api/...` → FastAPI
-
-Is liye frontend `.env.production` mein:
+Frontend `.env.production`:
 
 ```env
 NEXT_PUBLIC_API_URL=https://yourdomain.com
 ```
 
-Phir **rebuild** zaroori hai (env build-time embed hota hai):
+Rebuild + restart:
 
 ```bash
 cd /var/www/virtual-otp-system/frontend
-sudo -u www-data npm run build
-# ya agar ownership issue ho:
-sudo chown -R $USER:$USER /var/www/virtual-otp-system/frontend
+sudo chown -R $USER:$USER .
 npm run build
 sudo chown -R www-data:www-data /var/www/virtual-otp-system
-sudo systemctl restart otp-frontend
-```
-
-Backend CORS bhi domain se match kare:
-
-```env
-CORS_ORIGINS=https://yourdomain.com,http://yourdomain.com
-```
-
-```bash
-sudo systemctl restart otp-backend
+sudo systemctl restart otp-frontend otp-backend
 ```
 
 ---
 
-## 8. Domain DNS setup
-
-Apne domain registrar (Namecheap, Cloudflare, GoDaddy, etc.) pe:
+## 8. Domain DNS
 
 | Type | Name | Value |
 |------|------|--------|
 | A | `@` | `YOUR_SERVER_IP` |
 | A | `www` | `YOUR_SERVER_IP` |
 
-DNS propagate hone ka wait (5 min – 24 hr). Check:
-
 ```bash
-ping yourdomain.com
-# ya
 dig +short yourdomain.com
 ```
 
 ---
 
-## 9. SSL (HTTPS) with Let's Encrypt
-
-Domain DNS point hone ke baad:
+## 9. SSL (HTTPS)
 
 ```bash
 sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com
-```
-
-Follow prompts (email, agree). Certbot Nginx config auto update karega.
-
-Auto-renew test:
-
-```bash
 sudo certbot renew --dry-run
 ```
 
-HTTPS ke baad CORS + frontend env **https** rakho, phir frontend rebuild + services restart.
+HTTPS ke baad CORS + `NEXT_PUBLIC_API_URL` https rakho → frontend rebuild → services restart.
 
 ---
 
-## 10. Launch checklist (end-to-end)
+## 10. Launch checklist
 
 ```bash
-# 1) Services
 sudo systemctl status otp-backend otp-frontend nginx postgresql --no-pager
-
-# 2) Local ports
 ss -tlnp | grep -E ':80|:443|:3000|:8000|:5432'
-
-# 3) API health
 curl -s http://127.0.0.1:8000/health
-curl -s https://yourdomain.com/health
-
-# 4) Website
 curl -I https://yourdomain.com
 ```
 
-Browser:
-
-1. Open `https://yourdomain.com`
-2. Login admin (`ADMIN_USERNAME` / `ADMIN_PASSWORD` from `.env`)
-3. Dashboard → **Admin Panel** (purple button)
-4. Settings → markup set
-5. Users → add balance
-6. Buy Number → live price/stock
+Browser: site → admin login → Admin Panel → markup / balance → Buy Number.
 
 ---
 
-## 11. Update code later (deploy new GitHub changes)
+## 11. Code update later
 
 ```bash
 cd /var/www/virtual-otp-system
 sudo chown -R $USER:$USER .
 git pull origin main
 
-# Backend deps (agar requirements change)
-cd backend
-source venv/bin/activate
-pip install -r requirements.txt
-deactivate
+cd backend && source venv/bin/activate && pip install -r requirements.txt && deactivate
+cd ../frontend && npm install && npm run build
 
-# Frontend rebuild
-cd ../frontend
-npm install
-npm run build
-
-# Permissions + restart
 cd /var/www/virtual-otp-system
 sudo chown -R www-data:www-data .
 sudo systemctl restart otp-backend otp-frontend
@@ -512,114 +465,70 @@ sudo systemctl reload nginx
 
 ---
 
-## 12. Optional: IP-only launch (no domain)
+## 12. IP-only (no domain)
 
-1. Nginx `server_name YOUR_SERVER_IP;`
-2. `frontend/.env.production` → `NEXT_PUBLIC_API_URL=http://YOUR_SERVER_IP`
-3. `backend/.env` → `CORS_ORIGINS=http://YOUR_SERVER_IP`
-4. Rebuild frontend + restart backend/frontend/nginx
+1. Nginx: `server_name YOUR_SERVER_IP;`
+2. Frontend: `NEXT_PUBLIC_API_URL=http://YOUR_SERVER_IP`
+3. Backend: `CORS_ORIGINS=http://YOUR_SERVER_IP`
+4. Rebuild frontend + restart all
 5. Open `http://YOUR_SERVER_IP`
 
-SSL IP pe Let's Encrypt free nahi milta — domain chahiye HTTPS ke liye.
+HTTPS ke liye domain zaroori hai.
 
 ---
 
 ## 13. Troubleshooting
 
-### Backend 502 / not starting
-
 ```bash
 sudo journalctl -u otp-backend -n 100 --no-pager
-# Common: wrong DATABASE_URL, missing FIVESIM_API_KEY, SECRET_KEY too short
-```
-
-### Frontend blank / old build
-
-```bash
-cd /var/www/virtual-otp-system/frontend
-npm run build
-sudo systemctl restart otp-frontend
-```
-
-### CORS errors in browser
-
-- `CORS_ORIGINS` mein exact frontend origin (scheme + host)
-- `NEXT_PUBLIC_API_URL` rebuild ke baad match kare
-- HTTPS site pe HTTP API mat rakho
-
-### Database connection refused
-
-```bash
-sudo systemctl status postgresql
-sudo -u postgres psql -c "\\l"
-```
-
-### Permission denied (www-data)
-
-```bash
-sudo chown -R www-data:www-data /var/www/virtual-otp-system
-sudo chmod 600 /var/www/virtual-otp-system/backend/.env
-```
-
-### Nginx test fail
-
-```bash
+sudo journalctl -u otp-frontend -n 50 --no-pager
 sudo nginx -t
 sudo tail -50 /var/log/nginx/error.log
+sudo systemctl status postgresql
 ```
 
----
-
-## 14. Security notes (production)
-
-1. Strong `ADMIN_PASSWORD` + `SECRET_KEY` + DB password
-2. `.env` file `chmod 600`, git mein commit mat karo
-3. UFW: sirf 22, 80, 443 open
-4. PostgreSQL bahar expose mat karo (`listen_addresses = 'localhost'`)
-5. Backend/Frontend sirf `127.0.0.1` pe bind — public pe Nginx
-6. Regular: `sudo apt update && sudo apt upgrade`
+CORS: origin exact match + rebuild after env change.  
+Permissions: `sudo chown -R www-data:www-data /var/www/virtual-otp-system`
 
 ---
 
-## Quick command summary
+## 14. Security
 
-```bash
-# Clone
-cd /var/www && git clone https://github.com/faham112/virtual-otp-system.git
+1. Strong passwords + `SECRET_KEY`
+2. `.env` → `chmod 600`, git pe mat daalo
+3. UFW: 22, 80, 443
+4. PostgreSQL localhost only
+5. Apps bind `127.0.0.1` — public sirf Nginx
 
-# DB
-sudo -u postgres psql   # create user + DB
+---
 
-# Backend
-cd /var/www/virtual-otp-system/backend
-python3 -m venv venv && source venv/bin/activate
-pip install -r requirements.txt
-# edit .env
+## Quick summary
 
-# Frontend
-cd /var/www/virtual-otp-system/frontend
-# edit .env.production
-npm install && npm run build
-
-# Services + Nginx (configs above)
-sudo systemctl enable --now otp-backend otp-frontend nginx
-
-# SSL
-sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com
+```text
+Buy → Linux VPS (Ubuntu)  YA  Linux RDP (Ubuntu desktop)
+         │
+         ▼
+   Terminal / SSH  (sab Linux commands)
+         │
+         ▼
+   Clone → PostgreSQL → backend .env → npm build
+         → systemd → Nginx → Domain → SSL
+         │
+         ▼
+   https://yourdomain.com  LIVE
 ```
 
+**Windows RDP = is production guide ka target nahi.**  
+**Linux VPS aur Linux RDP = same setup, yehi document.**
+
 ---
 
-## Related files in repo
+## Related files
 
 | File | Purpose |
 |------|---------|
-| `setup.sh` | Interactive local `.env` wizard |
-| `install.sh` | Install backend + frontend packages |
-| `start.sh` | Local dev start (both apps) |
-| `RAILWAY.md` | Railway cloud deploy |
-| **`LINUX_VPS_SETUP.md`** | **Yeh document — full VPS/RDP production** |
+| `setup.sh` / `install.sh` / `start.sh` | Local Linux dev |
+| `RAILWAY.md` | Cloud (Railway) |
+| **`LINUX_VPS_SETUP.md`** | **Production Linux VPS / Linux RDP** |
 
----
-
-**Done.** Is flow ke baad project Linux server pe production mode mein live hona chahiye.
+**Done.** Poora launch Linux server pe isi guide se.
