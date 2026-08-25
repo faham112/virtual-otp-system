@@ -35,20 +35,23 @@ Railway Project
 2. Service settings:
    - **Root Directory**: `backend`
    - **Start Command**: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-3. **Variables** tab me ye add karo:
+   - **Do NOT** use `bash start.sh` (woh sirf local ke liye hai)
+3. **Variables** tab me ye add karo (copy-paste):
 
-| Variable | Value |
-|----------|-------|
-| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` (Reference Variable) |
-| `SECRET_KEY` | long random string (setup.sh se lo) |
-| `FIVESIM_API_KEY` | your real 5sim key |
-| `ADMIN_USERNAME` | `admin` |
-| `ADMIN_EMAIL` | `admin@yourdomain.com` |
-| `ADMIN_PASSWORD` | strong password |
-| `DEFAULT_MARKUP_PERCENT` | `50` |
-| `CORS_ORIGINS` | `https://YOUR-FRONTEND.up.railway.app` |
-| `ALGORITHM` | `HS256` |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | `1440` |
+```env
+DATABASE_URL=${{Postgres.DATABASE_URL}}
+SECRET_KEY=033c904f0ebdd3413a794a94017db4c3aa4c2641a1bdae4831a2dd231caff883
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=1440
+FIVESIM_API_KEY=YOUR_REAL_5SIM_API_KEY_HERE
+ADMIN_USERNAME=admin
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=Admin@Secure123!
+DEFAULT_MARKUP_PERCENT=50
+CORS_ORIGINS=https://YOUR-FRONTEND.up.railway.app
+```
+
+> Agar Postgres reference nahi chal raha to direct connection string use karo.
 
 4. Deploy → wait until healthy
 5. **Settings** → **Networking** → **Generate Domain** (backend public URL mil jayega)
@@ -62,54 +65,30 @@ Railway Project
    - **Root Directory**: `frontend`
    - Build: auto (Nixpacks)
    - Start: `npm run start`
-3. **Variables**:
+3. **Variables** (sirf ye ek):
 
-| Variable | Value |
-|----------|-------|
-| `NEXT_PUBLIC_API_URL` | `https://YOUR-BACKEND.up.railway.app` |
+```env
+NEXT_PUBLIC_API_URL=https://YOUR-BACKEND.up.railway.app
+```
 
 4. Deploy → **Generate Domain** for frontend
-5. Backend ke `CORS_ORIGINS` me frontend domain daalo aur re-deploy backend
+5. Backend ke `CORS_ORIGINS` me **exact** frontend domain daalo aur backend re-deploy karo
 
 ### 5. Final Check
 
 - Frontend URL open karo
-- Admin se login karo (jo credentials Variables me set kiye)
-- Balance add karo Admin API se ya pehle se seed me 0 balance hota hai
+- Admin se login: `admin` / `Admin@Secure123!`
+- Balance add karo Admin dashboard se
 - Number buy test karo
-
----
-
-## Local pe pehle test (optional)
-
-```bash
-# Repo clone
-git clone https://github.com/faham112/virtual-otp-system.git
-cd virtual-otp-system
-
-# Interactive setup (env + seed ready)
-bash setup.sh
-# Mode 1 choose karo (SQLite)
-
-# Backend
-cd backend
-python -m venv venv && source venv/bin/activate   # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
-
-# Frontend (new terminal)
-cd frontend
-npm install && npm run dev
-```
 
 ---
 
 ## Important Notes
 
-- Railway `PORT` env automatically set karta hai — code already support karta hai
+- Railway `PORT` env automatically set karta hai
 - `DATABASE_URL` me `postgres://` aaye to code automatically `postgresql://` me convert karta hai
 - Seed **har startup** pe chalega lekin admin sirf tab create hoga jab pehle se na ho
-- Production me `ADMIN_PASSWORD` strong rakho aur baad me change karo
+- **`.railway.internal`** domain sirf service-to-service internal networking ke liye hai — browser / `NEXT_PUBLIC_API_URL` me **public** `*.up.railway.app` URL use karo
 - Free tier pe sleep ho sakta hai — paid plan recommended for always-on
 
 ---
@@ -118,7 +97,8 @@ npm install && npm run dev
 
 | Problem | Fix |
 |---------|-----|
-| Backend crash on start | `DATABASE_URL` reference sahi hai? Postgres service running? |
+| `Backend venv missing` | Start Command galat hai. Use: `uvicorn app.main:app --host 0.0.0.0 --port $PORT` |
+| Backend crash on start | `DATABASE_URL` sahi hai? Postgres running? |
 | CORS error | Frontend domain `CORS_ORIGINS` me exact match hona chahiye |
 | Admin login fail | Variables me `ADMIN_*` set the? Seed logs check karo |
-| Frontend API fail | `NEXT_PUBLIC_API_URL` backend public URL pe point kar raha hai? |
+| Frontend API fail | `NEXT_PUBLIC_API_URL` backend **public** URL pe point kar raha hai? |
