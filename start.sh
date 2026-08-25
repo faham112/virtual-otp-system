@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 # ============================================================
 # Virtual OTP System - Start Frontend + Backend
-# Usage:  bash start.sh
-#         (or:  ./start.sh)
+# Usage:  bash start.sh   (LOCAL only)
+#
+# Railway: Do NOT use this script.
+# Backend Start Command must be:
+#   uvicorn app.main:app --host 0.0.0.0 --port $PORT
+# Root Directory must be: backend
 # ============================================================
 
 set -e
@@ -16,6 +20,15 @@ NC='\033[0m'
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$ROOT_DIR"
 
+# ---------- Railway detection ----------
+# If someone accidentally set Start Command to bash start.sh on Railway,
+# run only the backend with system Python (no venv).
+if [ -n "$RAILWAY_ENVIRONMENT" ] || [ -n "$RAILWAY_SERVICE_NAME" ] || [ -n "$RAILWAY_PROJECT_ID" ]; then
+  echo -e "${YELLOW}[Railway detected] Running backend only (no local venv)...${NC}"
+  cd "$ROOT_DIR/backend" 2>/dev/null || cd "$ROOT_DIR"
+  exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8000}"
+fi
+
 BACKEND_PID=""
 FRONTEND_PID=""
 
@@ -28,7 +41,6 @@ cleanup() {
   if [ -n "$FRONTEND_PID" ] && kill -0 "$FRONTEND_PID" 2>/dev/null; then
     kill "$FRONTEND_PID" 2>/dev/null || true
   fi
-  # Also kill any child processes of uvicorn / next
   pkill -f "uvicorn app.main:app" 2>/dev/null || true
   pkill -f "next dev" 2>/dev/null || true
   echo -e "${GREEN}Stopped.${NC}"
@@ -43,7 +55,7 @@ echo "   Virtual OTP System - Starting..."
 echo "=============================================="
 echo -e "${NC}"
 
-# ---------- Checks ----------
+# ---------- Checks (local only) ----------
 if [ ! -f "backend/requirements.txt" ]; then
   echo -e "${RED}backend/ not found. Run from project root.${NC}"
   exit 1
@@ -113,5 +125,4 @@ echo ""
 echo -e "${YELLOW}Stop karne ke liye:  Ctrl + C${NC}"
 echo ""
 
-# Wait for either process to exit
 wait
