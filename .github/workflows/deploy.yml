@@ -1,0 +1,38 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+
+            cd /var/www/html/virtual-otp-system
+
+            echo "=== Pulling latest code ==="
+            git pull origin main
+
+            echo "=== Building frontend ==="
+            cd frontend
+            npm install
+            npm run build
+
+            echo "=== Restarting frontend ==="
+            sudo systemctl restart otp-frontend.service
+
+            echo "=== Restarting backend ==="
+            sudo systemctl restart otp-backend.service
+
+            echo "=== Deployment completed ==="
