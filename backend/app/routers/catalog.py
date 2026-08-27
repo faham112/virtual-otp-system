@@ -7,7 +7,7 @@ from app.models import Setting
 from app.schemas import ALLOWED_SERVICES, ALLOWED_COUNTRIES, PriceQuote, CountryStock
 from app.auth import get_current_user
 from app.models import User
-from app.services.fivesim import FiveSimService
+from app.settings_helper import make_fivesim
 
 router = APIRouter()
 
@@ -44,7 +44,7 @@ async def get_price_quote(
     markup = get_markup_percent(db)
 
     try:
-        fivesim = FiveSimService()
+        fivesim = make_fivesim(db)
         raw = await fivesim.get_prices(
             country=None if country == "any" else country,
             product=service,
@@ -88,7 +88,7 @@ async def get_country_stock(
     results: List[CountryStock] = []
 
     try:
-        fivesim = FiveSimService()
+        fivesim = make_fivesim(db)
         raw = await fivesim.get_prices(product=service)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Failed to fetch stock: {str(e)}")
