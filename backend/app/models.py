@@ -1,7 +1,18 @@
-from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey, Text, UniqueConstraint
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    Float,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.database import Base
+
 
 class User(Base):
     __tablename__ = "users"
@@ -17,6 +28,7 @@ class User(Base):
 
     orders = relationship("Order", back_populates="user")
     transactions = relationship("Transaction", back_populates="user")
+    deposits = relationship("DepositRequest", back_populates="user")
 
 
 class Order(Base):
@@ -33,7 +45,7 @@ class Order(Base):
     country = Column(String(50), nullable=False)
     cost = Column(Float, nullable=False)
     provider_cost = Column(Float, default=0.0)
-    status = Column(String(30), default="pending", index=True)  # pending, received, failed, cancelled, completed
+    status = Column(String(30), default="pending", index=True)
     otp_code = Column(String(20), nullable=True)
     sms_text = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -48,7 +60,7 @@ class Transaction(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     amount = Column(Float, nullable=False)
-    type = Column(String(20), nullable=False)  # credit, debit, refund
+    type = Column(String(20), nullable=False)
     description = Column(String(255))
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -59,5 +71,23 @@ class Setting(Base):
     __tablename__ = "settings"
 
     id = Column(Integer, primary_key=True)
-    key = Column(String(50), unique=True, nullable=False)
-    value = Column(String(255), nullable=False)
+    key = Column(String(80), unique=True, nullable=False)
+    value = Column(Text, nullable=False)
+
+
+class DepositRequest(Base):
+    __tablename__ = "deposit_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    amount = Column(Float, nullable=False)
+    bank_key = Column(String(50), nullable=False)
+    bank_name = Column(String(120), nullable=False)
+    slip_note = Column(Text, nullable=True)
+    slip_image = Column(Text, nullable=True)
+    status = Column(String(20), default="pending", index=True)
+    admin_note = Column(String(255), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    processed_at = Column(DateTime, nullable=True)
+
+    user = relationship("User", back_populates="deposits")
