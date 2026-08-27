@@ -41,14 +41,6 @@ class UserCreate(BaseModel):
             raise ValueError("Password must contain at least one digit")
         return v
 
-class UserLogin(BaseModel):
-    username: str
-    password: str
-
-class Token(BaseModel):
-    access_token: str
-    token_type: str
-
 class UserOut(BaseModel):
     id: int
     username: str
@@ -56,10 +48,15 @@ class UserOut(BaseModel):
     balance: float
     is_admin: bool
     is_active: bool
-    created_at: datetime
 
     class Config:
         from_attributes = True
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+    is_admin: bool = False
+    username: str = ""
 
 # ========== Order Schemas ==========
 class OrderCreate(BaseModel):
