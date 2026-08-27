@@ -8,6 +8,7 @@ from app.models import User, Order, Transaction, Setting
 from app.schemas import OrderCreate, OrderOut
 from app.auth import get_current_user
 from app.services.fivesim import FiveSimService
+from app.settings_helper import make_fivesim
 
 router = APIRouter()
 
@@ -32,7 +33,6 @@ async def buy_number(
     Uses row-level lock to prevent race conditions / double-spend.
     Only the selected country is sent to 5sim (no fallback).
     """
-    # Lock the user row to prevent concurrent balance races
     user = db.query(User).filter(User.id == current_user.id).with_for_update().first()
     if not user or not user.is_active:
         raise HTTPException(status_code=400, detail="User not found or inactive")
@@ -41,9 +41,11 @@ async def buy_number(
         raise HTTPException(status_code=400, detail="Insufficient balance. Please top up.")
 
     markup = get_markup_percent(db)
-    fivesim = FiveSimService()
+    try:
+        fivesim = make_fivesim(db)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
-    # Buy exactly for the selected country (no "any" override unless user chose "any")
     try:
         result = await fivesim.buy_number(
             country=order_data.country,
@@ -55,7 +57,6 @@ async def buy_number(
 
     provider_cost = float(result.get("price", 0) or 0)
     if provider_cost <= 0:
-        # Safety: try cancel
         try:
             await fivesim.cancel_order(str(result.get("id", "")))
         except Exception:
@@ -74,7 +75,6 @@ async def buy_number(
             detail=f"Insufficient balance. Required: ${user_cost:.4f}, Available: ${user.balance:.4f}"
         )
 
-    # Deduct
     user.balance = round(user.balance - user_cost, 4)
 
     new_order = Order(
@@ -134,9 +134,8 @@ async def get_order_status(
     if order.status in ["completed", "failed", "cancelled"]:
         return order
 
-    # Check with 5sim
     if order.fivesim_order_id:
-        fivesim = FiveSimService()
+        fivesim = make_fivesim(db)
         try:
             data = await fivesim.check_order(order.fivesim_order_id)
             status = (data.get("status") or "").upper()
@@ -153,7 +152,6 @@ async def get_order_status(
                 db.commit()
 
             elif status in ["CANCELED", "CANCELLED", "TIMEOUT", "BANNED", "FINISHED"]:
-                # FINISHED without SMS sometimes happens
                 if status == "FINISHED" and not sms_list:
                     await refund_order(order, current_user, db, reason="TIMEOUT")
                 elif status != "FINISHED":
@@ -162,7 +160,6 @@ async def get_order_status(
         except Exception as e:
             print(f"[ORDER] Error checking order {order_id}: {e}")
 
-    # Auto-expire
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     if order.expires_at and now > order.expires_at and order.status == "pending":
         await refund_order(order, current_user, db, reason="TIMEOUT")
@@ -175,7 +172,6 @@ async def refund_order(order: Order, user: User, db: Session, reason: str = "fai
     if order.status in ["failed", "cancelled", "completed"]:
         return
 
-    # Lock user for balance update
     locked_user = db.query(User).filter(User.id == user.id).with_for_update().first()
     if not locked_user:
         return
@@ -193,7 +189,7 @@ async def refund_order(order: Order, user: User, db: Session, reason: str = "fai
 
     if order.fivesim_order_id:
         try:
-            fivesim = FiveSimService()
+            fivesim = make_fivesim(db)
             await fivesim.cancel_order(order.fivesim_order_id)
         except Exception:
             pass
