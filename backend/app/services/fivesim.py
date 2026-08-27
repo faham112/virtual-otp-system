@@ -1,28 +1,52 @@
 import httpx
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
 
+
+def _safe_json(response: httpx.Response) -> Dict[str, Any]:
+    text = (response.text or "").strip()
+    if not text:
+        raise Exception(
+            f"5sim returned empty body (HTTP {response.status_code}). Check API key."
+        )
+    try:
+        return response.json()
+    except Exception:
+        snippet = text[:200].replace("\n", " ")
+        raise Exception(
+            f"5sim non-JSON response (HTTP {response.status_code}): {snippet}"
+        )
+
+
 class FiveSimService:
     BASE_URL = "https://5sim.net/v1"
 
-    def __init__(self):
-        self.api_key = os.getenv("FIVESIM_API_KEY")
-        if not self.api_key or self.api_key == "your_5sim_api_key_here":
-            raise ValueError("FIVESIM_API_KEY is not set or is still the example value in .env")
+    def __init__(self, api_key: Optional[str] = None):
+        key = (api_key or os.getenv("FIVESIM_API_KEY") or "").strip()
+        if not key or key in ("your_5sim_api_key_here", "CHANGE_ME"):
+            raise ValueError(
+                "5sim API key not configured. Set it in Admin Panel → Settings or .env FIVESIM_API_KEY"
+            )
+        self.api_key = key
         self.headers = {
             "Authorization": f"Bearer {self.api_key}",
-            "Accept": "application/json"
+            "Accept": "application/json",
         }
         self.guest_headers = {"Accept": "application/json"}
 
     async def get_balance(self) -> float:
         async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.get(f"{self.BASE_URL}/user/profile", headers=self.headers)
-            response.raise_for_status()
-            data = response.json()
+            response = await client.get(
+                f"{self.BASE_URL}/user/profile", headers=self.headers
+            )
+            if response.status_code != 200:
+                raise Exception(
+                    f"5sim profile error ({response.status_code}): {response.text[:200]}"
+                )
+            data = _safe_json(response)
             return float(data.get("balance", 0))
 
     async def get_prices(
@@ -30,16 +54,11 @@ class FiveSimService:
         country: Optional[str] = None,
         product: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """
-        Live prices + stock from 5sim guest API.
-        GET /v1/guest/prices?country=&product=
-        """
         params = {}
         if country and country != "any":
             params["country"] = country
         if product:
             params["product"] = product
-
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.get(
                 f"{self.BASE_URL}/guest/prices",
@@ -47,8 +66,10 @@ class FiveSimService:
                 params=params or None,
             )
             if response.status_code != 200:
-                raise Exception(f"5sim prices error ({response.status_code}): {response.text}")
-            return response.json()
+                raise Exception(
+                    f"5sim prices error ({response.status_code}): {response.text[:200]}"
+                )
+            return _safe_json(response)
 
     def parse_best_price(
         self,
@@ -56,10 +77,6 @@ class FiveSimService:
         country: str,
         product: str,
     ) -> Dict[str, Any]:
-        """
-        From 5sim prices JSON, find cheapest operator with stock > 0.
-        Returns: provider_cost, stock, rate, operator, available
-        """
         best_cost = None
         best_stock = 0
         best_rate = 0.0
@@ -85,44 +102,41 @@ class FiveSimService:
                     best_rate = rate
                     best_operator = op_name
 
-        # Shapes:
-        # 1) { country: { product: { operator: {cost,count,rate} } } }
-        # 2) { product: { country: { operator: ... } } }
-        # 3) { country: { product: ... } } when both filters set
-
         if country and country != "any" and product:
-            # try country -> product -> operators
             block = data.get(country) or data
             if isinstance(block, dict):
                 ops = block.get(product) or block
                 if isinstance(ops, dict) and any(
-                    isinstance(v, dict) and ("cost" in v or "count" in v) for v in ops.values()
+                    isinstance(v, dict) and ("cost" in v or "count" in v)
+                    for v in ops.values()
                 ):
                     scan_operators(ops)
                 else:
-                    # nested country/product
                     for ckey, cval in block.items():
                         if isinstance(cval, dict) and product in cval:
                             scan_operators(cval[product])
                         elif ckey == product and isinstance(cval, dict):
                             scan_operators(cval)
         elif product and (not country or country == "any"):
-            # product filter: { product: { country: { op: ... } } } or mixed
             root = data.get(product) or data
             if isinstance(root, dict):
                 for ckey, cval in root.items():
                     if isinstance(cval, dict):
-                        # country -> operators OR product nested
-                        if any(isinstance(v, dict) and "cost" in v for v in cval.values()):
+                        if any(
+                            isinstance(v, dict) and "cost" in v for v in cval.values()
+                        ):
                             scan_operators(cval)
                         else:
                             for pkey, pval in cval.items():
-                                if pkey == product or product in (pkey,):
-                                    scan_operators(pval if isinstance(pval, dict) else {})
-                                elif isinstance(pval, dict) and "cost" in next(iter(pval.values()), {}):
+                                if pkey == product:
+                                    scan_operators(
+                                        pval if isinstance(pval, dict) else {}
+                                    )
+                                elif isinstance(pval, dict) and "cost" in next(
+                                    iter(pval.values()), {}
+                                ):
                                     scan_operators(pval)
         else:
-            # generic walk
             for v1 in data.values() if isinstance(data, dict) else []:
                 if not isinstance(v1, dict):
                     continue
@@ -132,12 +146,12 @@ class FiveSimService:
                     ):
                         scan_operators(v2)
 
-        if best_cost is None:
+        if best_cost is None or total_stock <= 0:
             return {
                 "available": False,
                 "provider_cost": 0.0,
                 "stock": 0,
-                "total_stock": total_stock,
+                "total_stock": int(total_stock),
                 "rate": 0.0,
                 "operator": None,
             }
@@ -151,35 +165,55 @@ class FiveSimService:
             "operator": best_operator,
         }
 
-    async def buy_number(self, country: str, operator: str, product: str) -> Dict[str, Any]:
-        """
-        Buy activation number for the EXACT country requested.
-        country: e.g. england, russia, usa, any
-        operator: any (recommended)
-        product: facebook, whatsapp, telegram, etc.
-        """
+    async def buy_number(
+        self, country: str, operator: str, product: str
+    ) -> Dict[str, Any]:
+        country = (country or "any").lower().strip()
+        operator = (operator or "any").lower().strip()
+        product = (product or "").lower().strip()
+        if not product:
+            raise Exception("Product/service is required")
         url = f"{self.BASE_URL}/user/buy/activation/{country}/{operator}/{product}"
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=45.0) as client:
             response = await client.get(url, headers=self.headers)
             if response.status_code != 200:
-                raise Exception(f"5sim Error ({response.status_code}): {response.text}")
-            return response.json()
+                body = (response.text or "")[:300]
+                raise Exception(f"5sim Error ({response.status_code}): {body}")
+            data = _safe_json(response)
+            if not data.get("id"):
+                raise Exception(
+                    f"5sim buy failed: missing order id. Response: {str(data)[:200]}"
+                )
+            return data
 
     async def check_order(self, order_id: str) -> Dict[str, Any]:
         url = f"{self.BASE_URL}/user/check/{order_id}"
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.get(url, headers=self.headers)
-            response.raise_for_status()
-            return response.json()
+            if response.status_code != 200:
+                raise Exception(
+                    f"5sim check error ({response.status_code}): {response.text[:200]}"
+                )
+            return _safe_json(response)
 
     async def cancel_order(self, order_id: str) -> Dict[str, Any]:
         url = f"{self.BASE_URL}/user/cancel/{order_id}"
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.get(url, headers=self.headers)
-            return response.json()
+            if not (response.text or "").strip():
+                return {"status": "cancelled"}
+            try:
+                return response.json()
+            except Exception:
+                return {"status": "cancelled"}
 
     async def finish_order(self, order_id: str) -> Dict[str, Any]:
         url = f"{self.BASE_URL}/user/finish/{order_id}"
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.get(url, headers=self.headers)
-            return response.json()
+            if not (response.text or "").strip():
+                return {"status": "finished"}
+            try:
+                return response.json()
+            except Exception:
+                return {"status": "finished"}
