@@ -37,6 +37,34 @@ Open http://localhost:3000
 
 ## Production deploy
 
+From your development machine, one command commits and pushes the current code,
+then installs dependencies, builds the production frontend, restarts both VPS
+services, validates Nginx, and checks the local health endpoints:
+
+```bash
+OTP_VPS_HOST=your-server-ip OTP_VPS_USER=your-ssh-user \
+	bash deploy-otp.sh "Release message"
+```
+
+The server must already be provisioned according to the Linux guide, with
+`backend/.env` and `frontend/.env.production` present. To deploy the existing
+remote branch without committing or pushing local changes, use
+`OTP_SKIP_PUSH=1`.
+
+On the VPS, bootstrap the command once after SSH:
+
+```bash
+cd /var/www/html/virtual-otp-system
+sudo install -m 755 deploy-otp /usr/local/bin/deploy-otp
+deploy-otp
+```
+
+The first run asks for the production database, admin, and 5sim credentials,
+then creates the database, synchronizes application tables and seed data,
+configures services, preserves existing HTTPS/Nginx settings, and builds production.
+After that, simply run `deploy-otp` after SSH to pull and deploy the newest code.
+To commit and push code that is already on the VPS, run `deploy-otp push`.
+
 | Guide | Use case |
 |-------|----------|
 | **[LINUX_VPS_SETUP.md](./LINUX_VPS_SETUP.md)** | **Full VPS / RDP: clone → PostgreSQL → build → Nginx → domain → SSL** |

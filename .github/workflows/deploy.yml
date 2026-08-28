@@ -21,18 +21,34 @@ jobs:
 
             cd /var/www/html/virtual-otp-system
 
-            echo "=== Pulling latest code ==="
-            git pull origin main
+            echo "==> Pulling latest code"
+            git fetch origin main
+            git checkout main
+            git reset --hard origin/main
 
-            echo "=== Building frontend ==="
+            test -f backend/.env
+            test -f frontend/.env.production
+
+            echo "==> Installing backend dependencies"
+            python3 -m venv backend/venv 2>/dev/null || true
+            backend/venv/bin/python -m pip install --upgrade pip -q
+            backend/venv/bin/pip install -r backend/requirements.txt
+
+            echo "==> Installing and building frontend"
             cd frontend
-            npm install
+            if [ -f package-lock.json ]; then npm ci; else npm install; fi
             npm run build
+            cd ..
 
-            echo "=== Restarting frontend ==="
-            sudo systemctl restart otp-frontend.service
+            echo "==> Validating and reloading Nginx"
+            sudo nginx -t
+            sudo systemctl daemon-reload
 
-            echo "=== Restarting backend ==="
-            sudo systemctl restart otp-backend.service
-
-            echo "=== Deployment completed ==="
+            echo "==> Restarting production services"
+            sudo systemctl restart otp-backend.service otp-frontend.service
+            sudo systemctl is-active --quiet otp-backend.service
+            sudo systemctl is-active --quiet otp-frontend.service
+            curl --fail --silent --show-error http://127.0.0.1:8000/health >/dev/null
+            curl --fail --silent --show-error http://127.0.0.1:3000/ >/dev/null
+            sudo systemctl reload nginx
+            echo "==> Production deployment completed successfully"

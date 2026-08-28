@@ -35,3 +35,4 @@ npm-debug.log*
 
 frontend/.env.production
 backend/.env
+.deploy-otp.env
