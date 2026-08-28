@@ -63,7 +63,8 @@ The first run asks for the production database, admin, and 5sim credentials,
 then creates the database, synchronizes application tables and seed data,
 configures services, preserves existing HTTPS/Nginx settings, and builds production.
 After that, simply run `deploy-otp` after SSH to pull and deploy the newest code.
-To commit and push code that is already on the VPS, run `deploy-otp push`.
+Like `deploy-femantic`, it stops when the VPS Git tree has uncommitted changes;
+commit and push changes to GitHub before running the production deployment.
 
 | Guide | Use case |
 |-------|----------|
