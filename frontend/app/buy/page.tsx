@@ -50,11 +50,46 @@ export default function BuyPage() {
   const [country, setCountry] = useState("any");
   const [loading, setLoading] = useState(false);
   const [priceLoading, setPriceLoading] = useState(false);
+  const [stockLoading, setStockLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState<any>(null);
   const [quote, setQuote] = useState<any>(null);
+  const [stockMap, setStockMap] = useState<Record<string, any>>({});
 
   const selectedCountry = COUNTRIES.find((c) => c.value === country);
+
+  // Only show countries that have stock (or "any")
+  const visibleCountries = COUNTRIES.filter((c) => {
+    if (c.value === "any") return true;
+    const s = stockMap[c.value];
+    if (!s) return true; // while loading keep them
+    return s.available && (s.stock > 0 || s.total_stock > 0 || s.user_price > 0);
+  });
+
+  const fetchStock = useCallback(async () => {
+    const token = Cookies.get("token");
+    if (!token) return;
+    setStockLoading(true);
+    try {
+      const res = await axios.get(`${API_URL}/api/catalog/stock`, {
+        params: { service },
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const map: Record<string, any> = {};
+      (res.data || []).forEach((item: any) => {
+        map[item.country] = item;
+      });
+      setStockMap(map);
+      // If current country became OOS, switch to any
+      if (country !== "any" && map[country] && !map[country].available) {
+        setCountry("any");
+      }
+    } catch {
+      setStockMap({});
+    } finally {
+      setStockLoading(false);
+    }
+  }, [service, country]);
 
   const fetchPrice = useCallback(async () => {
     const token = Cookies.get("token");
@@ -74,6 +109,10 @@ export default function BuyPage() {
       setPriceLoading(false);
     }
   }, [service, country]);
+
+  useEffect(() => {
+    fetchStock();
+  }, [service]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     fetchPrice();
@@ -154,6 +193,7 @@ export default function BuyPage() {
                     setSuccess(null);
                     setError("");
                     fetchPrice();
+                    fetchStock();
                   }}
                   className="bg-[#12151c] hover:bg-[#1e2230] border border-[#2a2f3d] text-gray-300 text-sm px-5 py-2.5 rounded-xl transition"
                 >
@@ -185,10 +225,13 @@ export default function BuyPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Country <span className="text-gray-500 font-normal">(only this country)</span>
+                  Country{" "}
+                  <span className="text-gray-500 font-normal">
+                    {stockLoading ? "(checking stock...)" : "(only in-stock shown)"}
+                  </span>
                 </label>
                 <div className="grid grid-cols-1 gap-1.5 max-h-56 overflow-y-auto pr-1">
-                  {COUNTRIES.map((c) => (
+                  {visibleCountries.map((c) => (
                     <button
                       key={c.value}
                       type="button"
@@ -201,6 +244,11 @@ export default function BuyPage() {
                     >
                       <span className="text-xl">{c.flag}</span>
                       <span className="flex-1">{c.label}</span>
+                      {c.value !== "any" && stockMap[c.value] && (
+                        <span className="text-xs text-gray-500">
+                          ${stockMap[c.value].user_price?.toFixed(2) || "—"}
+                        </span>
+                      )}
                       {country === c.value && (
                         <svg className="w-4 h-4 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
@@ -262,7 +310,7 @@ export default function BuyPage() {
               </button>
 
               <p className="text-xs text-center text-gray-500">
-                Full refund if OTP fails or times out.
+                Full refund if OTP fails or times out. Out-of-stock countries are hidden.
               </p>
             </>
           )}
