@@ -197,6 +197,9 @@ export default function DashboardPage() {
                 Admin Panel
               </Link>
             )}
+            <Link href="/deposit" className="btn-ghost text-sm">
+              Deposit
+            </Link>
             <Link href="/transactions" className="btn-ghost text-sm">
               Transactions
             </Link>
