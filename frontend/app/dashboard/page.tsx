@@ -170,8 +170,8 @@ export default function DashboardPage() {
                       <div className="text-2xl mt-0.5">{COUNTRY_FLAGS[order.country] || "\uD83C\uDF10"}</div>
                       <div>
                         <p className="font-mono font-semibold text-white text-lg tracking-wide">{order.phone_number || "-"}</p>
-                        <p className="text-sm text-gray-400 mt-0.5 capitalize">{order.service} \u00b7 {order.country}</p>
-                        <p className="text-xs text-gray-500 mt-1">${order.cost?.toFixed(4)} \u00b7 {new Date(order.created_at).toLocaleString()}</p>
+                        <p className="text-sm text-gray-400 mt-0.5 capitalize">{order.service}{" · "}{order.country}</p>
+                        <p className="text-xs text-gray-500 mt-1">${order.cost?.toFixed(4)}{" · "}{new Date(order.created_at).toLocaleString()}</p>
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-2">

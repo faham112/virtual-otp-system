@@ -102,7 +102,7 @@ export default function BuyPage() {
       });
       setQuote(res.data);
       if (res.data && res.data.available === false) {
-        setError("Out of stock \u2014 stock available nahi.");
+        setError("Out of stock - stock available nahi.");
       } else {
         setError("");
       }
@@ -146,7 +146,7 @@ export default function BuyPage() {
     };
     try {
       if (quote && quote.available === false && country !== "any") {
-        setError("Out of stock \u2014 stock available nahi.");
+        setError("Out of stock - stock available nahi.");
         alert("Out of stock");
         return;
       }
@@ -155,7 +155,7 @@ export default function BuyPage() {
     } catch (err: any) {
       const detail = err.response?.data?.detail;
       const msg = typeof detail === "string" ? detail : "Failed to buy number";
-      if (isNoStock(msg)) { setError("Out of stock \u2014 stock available nahi."); alert("Out of stock"); }
+      if (isNoStock(msg)) { setError("Out of stock - stock available nahi."); alert("Out of stock"); }
       else setError(msg);
     } finally { setLoading(false); }
   };
@@ -199,7 +199,7 @@ export default function BuyPage() {
               {success.phone_number && (
                 <button type="button" onClick={() => copyText(success.phone_number, "phone")} className="text-xs text-gray-400 border border-[#2a2f3d] px-2 py-1 rounded-lg">{copied === "phone" ? "Copied" : "Copy"}</button>
               )}
-              <p className="text-sm text-gray-400">{success.service} \u00b7 {countryLabel(success.country)} \u00b7 ${Number(success.cost || 0).toFixed(4)}</p>
+              <p className="text-sm text-gray-400">{success.service}{" · "}{countryLabel(success.country)}{" · "}{`$${Number(success.cost || 0).toFixed(4)}`}</p>
               {isPending && <p className="text-amber-300 text-sm">Waiting for OTP...</p>}
               {isDone && (
                 <div>
@@ -226,14 +226,14 @@ export default function BuyPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Country {stockLoading ? "(loading rates...)" : `(${sortedRows.length} \u00b7 cheapest first)`}</label>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Country {stockLoading ? "(loading rates...)" : `(${sortedRows.length} countries)`}</label>
                 <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search country..." className="input-field text-sm mb-3" />
                 <button type="button" onClick={() => { setCountry("any"); setError(""); }}
                   className={`w-full flex items-center gap-3 px-4 py-3 mb-2 rounded-xl border text-sm text-left ${country === "any" ? "bg-blue-600/20 border-blue-500/50 text-blue-300" : "bg-[#12151c] border-[#2a2f3d] text-gray-300"}`}>
-                  <span className="text-xl">\uD83C\uDF10</span>
+                  <span className="text-xl">{"\uD83C\uDF10"}</span>
                   <span className="flex-1">Any (Cheapest in stock)</span>
                   <span className="text-xs font-semibold text-emerald-400">
-                    {cheapestLive ? formatUsd(rowPrice(cheapestLive)) : stockLoading ? "..." : "\u2014"}
+                    {cheapestLive ? formatUsd(rowPrice(cheapestLive)) : stockLoading ? "..." : "-"}
                   </span>
                 </button>
                 <div className="grid grid-cols-1 gap-1.5 max-h-72 overflow-y-auto pr-1">
@@ -245,7 +245,7 @@ export default function BuyPage() {
                         <span className="text-xl">{countryFlag(row.country)}</span>
                         <span className="flex-1">{countryLabel(row.country)}</span>
                         <span className="text-xs font-semibold text-emerald-400 whitespace-nowrap">
-                          {p > 0 ? formatUsd(p) : "\u2014"}
+                          {p > 0 ? formatUsd(p) : "-"}
                         </span>
                       </button>
                     );
@@ -254,7 +254,7 @@ export default function BuyPage() {
               </div>
               <div className="bg-[#12151c] rounded-xl p-4 border border-[#2a2f3d] space-y-2">
                 <p className="text-xs text-gray-500">Live price</p>
-                <p className="text-white font-medium">{SERVICES.find((s) => s.value === service)?.label} \u00b7 {country === "any" ? "Any" : `${countryFlag(country)} ${countryLabel(country)}`}</p>
+                <p className="text-white font-medium">{SERVICES.find((s) => s.value === service)?.label}{" · "}{country === "any" ? "Any" : `${countryFlag(country)} ${countryLabel(country)}`}</p>
                 {priceLoading ? <p className="text-sm text-gray-400">Fetching price...</p> : shownPrice > 0 ? (
                   <div className="flex items-center gap-3">
                     <span className="text-2xl font-bold text-emerald-400">{formatUsd(Number(quote?.user_price || shownPrice))}</span>
