@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta, timezone
-from typing import List
+from typing import List, Optional, Tuple
+import re
 
 from app.database import get_db
 from app.models import User, Order, Transaction, Setting
@@ -11,6 +12,59 @@ from app.services.fivesim import FiveSimService
 from app.settings_helper import make_fivesim
 
 router = APIRouter()
+
+OTP_RE = re.compile(r"\b(\d{4,8})\b")
+
+
+def extract_otp(data: dict) -> Tuple[Optional[str], Optional[str]]:
+    if not isinstance(data, dict):
+        return None, None
+    sms_list = data.get("sms") or []
+    if isinstance(sms_list, dict):
+        sms_list = [sms_list]
+    for sms in sms_list:
+        if not isinstance(sms, dict):
+            continue
+        text = str(sms.get("text") or sms.get("message") or "")
+        code = sms.get("code") or sms.get("otp")
+        if code:
+            return str(code), text or None
+        match = OTP_RE.search(text)
+        if match:
+            return match.group(1), text
+    if data.get("code"):
+        return str(data.get("code")), data.get("text")
+    text = str(data.get("text") or "")
+    match = OTP_RE.search(text)
+    if match:
+        return match.group(1), text
+    return None, None
+
+
+async def apply_fivesim_status(order: Order, user: User, db: Session, data: dict, fivesim) -> bool:
+    if order.status in ["completed", "failed", "cancelled"]:
+        return False
+    status = str(data.get("status") or "").upper()
+    code, text = extract_otp(data)
+    if code or status == "RECEIVED":
+        if code:
+            order.status = "completed"
+            order.otp_code = code
+            order.sms_text = text
+            try:
+                await fivesim.finish_order(order.fivesim_order_id)
+            except Exception:
+                pass
+            db.commit()
+            return True
+    if status in ["CANCELED", "CANCELLED", "TIMEOUT", "BANNED"]:
+        await refund_order(order, user, db, reason=status)
+        return True
+    if status == "FINISHED" and not code:
+        await refund_order(order, user, db, reason="TIMEOUT")
+        return True
+    return False
+
 
 def get_markup_percent(db: Session) -> float:
     setting = db.query(Setting).filter(Setting.key == "markup_percent").first()
@@ -134,25 +188,7 @@ async def get_order_status(
         fivesim = make_fivesim(db)
         try:
             data = await fivesim.check_order(order.fivesim_order_id)
-            status = (data.get("status") or "").upper()
-            sms_list = data.get("sms") or []
-
-            if status == "RECEIVED" and sms_list:
-                order.status = "completed"
-                order.otp_code = sms_list[0].get("code")
-                order.sms_text = sms_list[0].get("text")
-                try:
-                    await fivesim.finish_order(order.fivesim_order_id)
-                except Exception:
-                    pass
-                db.commit()
-
-            elif status in ["CANCELED", "CANCELLED", "TIMEOUT", "BANNED", "FINISHED"]:
-                if status == "FINISHED" and not sms_list:
-                    await refund_order(order, current_user, db, reason="TIMEOUT")
-                elif status != "FINISHED":
-                    await refund_order(order, current_user, db, reason=status)
-
+            await apply_fivesim_status(order, current_user, db, data, fivesim)
         except Exception as e:
             print(f"[ORDER] Error checking order {order_id}: {e}")
 
