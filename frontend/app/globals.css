@@ -57,11 +57,16 @@ body {
 }
 
 body.otp-shell {
-  padding-bottom: 5.25rem;
+  padding-bottom: 6.25rem;
 }
 @media (min-width: 1024px) {
   body.otp-shell {
     padding-left: 16rem;
     padding-bottom: 0;
   }
+}
+
+/* Hide leftover page headers once the shared shell is mounted */
+body.otp-shell header.z-20 {
+  display: none !important;
 }
