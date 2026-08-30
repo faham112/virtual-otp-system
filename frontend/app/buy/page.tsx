@@ -56,14 +56,12 @@ export default function BuyPage() {
       return String(r.country).includes(q) || label.includes(q);
     });
     return [...rows].sort((a, b) => {
-      const ap = rowPrice(a);
-      const bp = rowPrice(b);
-      if (ap > 0 && bp <= 0) return -1;
-      if (bp > 0 && ap <= 0) return 1;
-      if (ap !== bp) return ap - bp;
       const aOk = !!a.available;
       const bOk = !!b.available;
       if (aOk !== bOk) return aOk ? -1 : 1;
+      const ap = rowPrice(a);
+      const bp = rowPrice(b);
+      if (ap !== bp) return (ap || 9999) - (bp || 9999);
       return countryLabel(a.country).localeCompare(countryLabel(b.country));
     });
   }, [stockRows, search]);
@@ -101,11 +99,7 @@ export default function BuyPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
       setQuote(res.data);
-      if (res.data && res.data.available === false) {
-        setError("Out of stock - stock available nahi.");
-      } else {
-        setError("");
-      }
+      setError("");
     } catch {
       setQuote(null);
     } finally {
@@ -136,27 +130,31 @@ export default function BuyPage() {
     return () => { if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; } };
   }, [success?.id, success?.status]);
 
+  const selectedRow = stockRows.find((r) => r.country === country);
+  const isLive = country === "any" ? !!(cheapestLive || quote?.available) : !!(quote?.available || selectedRow?.available);
+  const shownPrice = isLive ? Number(quote?.user_price || selectedRow?.user_price || cheapestLive?.user_price || 0) : 0;
+
   const handleBuy = async () => {
     setLoading(true); setError(""); setSuccess(null);
     const token = Cookies.get("token");
     if (!token) { router.push("/login"); return; }
-    const isNoStock = (msg: string) => {
-      const lower = msg.toLowerCase();
-      return lower.includes("no free phones") || lower.includes("out of stock") || lower.includes("unavailable");
-    };
+    if (!isLive) {
+      setError("Out of stock");
+      setLoading(false);
+      return;
+    }
     try {
-      if (quote && quote.available === false && country !== "any") {
-        setError("Out of stock - stock available nahi.");
-        alert("Out of stock");
-        return;
-      }
       const res = await axios.post(`${API_URL}/api/orders/buy`, { service, country }, { headers: { Authorization: `Bearer ${token}` } });
       setSuccess(res.data);
     } catch (err: any) {
       const detail = err.response?.data?.detail;
       const msg = typeof detail === "string" ? detail : "Failed to buy number";
-      if (isNoStock(msg)) { setError("Out of stock - stock available nahi."); alert("Out of stock"); }
-      else setError(msg);
+      const lower = msg.toLowerCase();
+      if (lower.includes("no free phones") || lower.includes("out of stock") || lower.includes("unavailable")) {
+        setError("Out of stock");
+      } else {
+        setError(msg);
+      }
     } finally { setLoading(false); }
   };
 
@@ -181,9 +179,6 @@ export default function BuyPage() {
   const isPending = status === "pending";
   const isDone = status === "completed";
   const isFailed = status === "failed" || status === "cancelled";
-  const selectedRow = stockRows.find((r) => r.country === country);
-  const shownPrice = Number(quote?.user_price || selectedRow?.user_price || cheapestLive?.user_price || 0);
-  const canBuy = country === "any" ? !!(cheapestLive || quote?.available) : !!(quote?.available || selectedRow?.available);
 
   return (
     <div className="min-h-screen">
@@ -199,7 +194,7 @@ export default function BuyPage() {
               {success.phone_number && (
                 <button type="button" onClick={() => copyText(success.phone_number, "phone")} className="text-xs text-gray-400 border border-[#2a2f3d] px-2 py-1 rounded-lg">{copied === "phone" ? "Copied" : "Copy"}</button>
               )}
-              <p className="text-sm text-gray-400">{success.service}{" · "}{countryLabel(success.country)}{" · "}{`$${Number(success.cost || 0).toFixed(4)}`}</p>
+              <p className="text-sm text-gray-400">{success.service}{" - "}{countryLabel(success.country)}{" - "}{`$${Number(success.cost || 0).toFixed(4)}`}</p>
               {isPending && <p className="text-amber-300 text-sm">Waiting for OTP...</p>}
               {isDone && (
                 <div>
@@ -232,20 +227,21 @@ export default function BuyPage() {
                   className={`w-full flex items-center gap-3 px-4 py-3 mb-2 rounded-xl border text-sm text-left ${country === "any" ? "bg-blue-600/20 border-blue-500/50 text-blue-300" : "bg-[#12151c] border-[#2a2f3d] text-gray-300"}`}>
                   <span className="text-xl">{"\uD83C\uDF10"}</span>
                   <span className="flex-1">Any (Cheapest in stock)</span>
-                  <span className="text-xs font-semibold text-emerald-400">
-                    {cheapestLive ? formatUsd(rowPrice(cheapestLive)) : stockLoading ? "..." : "-"}
+                  <span className={`text-xs font-semibold ${cheapestLive ? "text-emerald-400" : "text-amber-400"}`}>
+                    {stockLoading ? "..." : cheapestLive ? formatUsd(rowPrice(cheapestLive)) : "Out of stock"}
                   </span>
                 </button>
                 <div className="grid grid-cols-1 gap-1.5 max-h-72 overflow-y-auto pr-1">
                   {sortedRows.map((row) => {
+                    const live = !!row.available;
                     const p = rowPrice(row);
                     return (
                       <button key={row.country} type="button" onClick={() => { setCountry(row.country); setError(""); }}
                         className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-sm text-left ${country === row.country ? "bg-blue-600/20 border-blue-500/50 text-blue-300" : "bg-[#12151c] border-[#2a2f3d] text-gray-300"}`}>
                         <span className="text-xl">{countryFlag(row.country)}</span>
                         <span className="flex-1">{countryLabel(row.country)}</span>
-                        <span className="text-xs font-semibold text-emerald-400 whitespace-nowrap">
-                          {p > 0 ? formatUsd(p) : "-"}
+                        <span className={`text-xs font-semibold whitespace-nowrap ${live && p > 0 ? "text-emerald-400" : "text-amber-400"}`}>
+                          {live && p > 0 ? formatUsd(p) : "Out of stock"}
                         </span>
                       </button>
                     );
@@ -254,17 +250,16 @@ export default function BuyPage() {
               </div>
               <div className="bg-[#12151c] rounded-xl p-4 border border-[#2a2f3d] space-y-2">
                 <p className="text-xs text-gray-500">Live price</p>
-                <p className="text-white font-medium">{SERVICES.find((s) => s.value === service)?.label}{" · "}{country === "any" ? "Any" : `${countryFlag(country)} ${countryLabel(country)}`}</p>
-                {priceLoading ? <p className="text-sm text-gray-400">Fetching price...</p> : shownPrice > 0 ? (
+                <p className="text-white font-medium">{SERVICES.find((s) => s.value === service)?.label}{" - "}{country === "any" ? "Any" : `${countryFlag(country)} ${countryLabel(country)}`}</p>
+                {priceLoading ? <p className="text-sm text-gray-400">Fetching price...</p> : isLive && shownPrice > 0 ? (
                   <div className="flex items-center gap-3">
-                    <span className="text-2xl font-bold text-emerald-400">{formatUsd(Number(quote?.user_price || shownPrice))}</span>
-                    {quote?.available && <span className="badge bg-blue-500/15 text-blue-300 border border-blue-500/30">Stock: {quote.total_stock || quote.stock}</span>}
-                    {quote && quote.available === false && <span className="text-xs text-amber-400">No live stock</span>}
+                    <span className="text-2xl font-bold text-emerald-400">{formatUsd(shownPrice)}</span>
+                    {quote?.available && <span className="badge bg-blue-500/15 text-blue-300 border border-blue-500/30">Stock: {quote.stock || quote.total_stock}</span>}
                   </div>
-                ) : <span className="text-amber-400 text-sm">Rate available nahi</span>}
+                ) : <span className="text-amber-400 text-sm font-medium">Out of stock</span>}
               </div>
-              <button onClick={handleBuy} disabled={loading || priceLoading || !canBuy} className="w-full btn-primary py-3.5 text-base">
-                {loading ? "Buying number..." : canBuy && shownPrice > 0 ? `Buy for ${formatUsd(Number(quote?.user_price || shownPrice))}` : "Out of stock"}
+              <button onClick={handleBuy} disabled={loading || priceLoading || !isLive} className="w-full btn-primary py-3.5 text-base">
+                {loading ? "Buying number..." : isLive && shownPrice > 0 ? `Buy for ${formatUsd(shownPrice)}` : "Out of stock"}
               </button>
             </>
           )}
