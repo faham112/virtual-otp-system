@@ -28,11 +28,6 @@ async def buy_number(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Buy a virtual number from 5sim.
-    Uses row-level lock to prevent race conditions / double-spend.
-    Only the selected country is sent to 5sim (no fallback).
-    """
     user = db.query(User).filter(User.id == current_user.id).with_for_update().first()
     if not user or not user.is_active:
         raise HTTPException(status_code=400, detail="User not found or inactive")
@@ -47,13 +42,14 @@ async def buy_number(
         raise HTTPException(status_code=400, detail=str(e))
 
     try:
-        result = await fivesim.buy_number(
+        result = await fivesim.buy_best(
             country=order_data.country,
-            operator="any",
             product=order_data.service
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to buy number: {str(e)}")
+
+    resolved_country = result.get("_resolved_country") or order_data.country
 
     provider_cost = float(result.get("price", 0) or 0)
     if provider_cost <= 0:
@@ -82,7 +78,7 @@ async def buy_number(
         fivesim_order_id=str(result["id"]),
         phone_number=result.get("phone"),
         service=order_data.service,
-        country=order_data.country,
+        country=resolved_country,
         cost=user_cost,
         provider_cost=provider_cost,
         status="pending",
@@ -94,7 +90,7 @@ async def buy_number(
         user_id=user.id,
         amount=-user_cost,
         type="debit",
-        description=f"Bought {order_data.service} ({order_data.country}) → {result.get('phone')}"
+        description=f"Bought {order_data.service} ({resolved_country}) -> {result.get('phone')}"
     )
     db.add(txn)
 
