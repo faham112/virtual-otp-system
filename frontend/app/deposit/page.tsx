@@ -15,9 +15,22 @@ type Bank = {
   type: string;
 };
 
+function cleanPhone(n: string) {
+  return String(n || "").replace(/[^\d]/g, "");
+}
+
+function openWhatsApp(phone: string, message: string) {
+  const num = cleanPhone(phone);
+  if (!num) return false;
+  const url = `https://wa.me/${num}?text=${encodeURIComponent(message)}`;
+  window.open(url, "_blank");
+  return true;
+}
+
 export default function DepositPage() {
   const router = useRouter();
   const [banks, setBanks] = useState<Bank[]>([]);
+  const [whatsappNumbers, setWhatsappNumbers] = useState<string[]>([]);
   const [amount, setAmount] = useState("");
   const [bankKey, setBankKey] = useState("");
   const [slipNote, setSlipNote] = useState("");
@@ -35,13 +48,14 @@ export default function DepositPage() {
       const res = await axios.get(`${API_URL}/api/deposits/banks`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      // Backend returns { banks: [...] }
       const list: Bank[] = Array.isArray(res.data?.banks)
         ? res.data.banks
         : Array.isArray(res.data)
         ? res.data
         : [];
       setBanks(list);
+      const wa = Array.isArray(res.data?.whatsapp_numbers) ? res.data.whatsapp_numbers : [];
+      setWhatsappNumbers(wa);
       if (list.length && !bankKey) setBankKey(list[0].key);
     } catch {
       setBanks([]);
@@ -88,7 +102,7 @@ export default function DepositPage() {
     setSuccess("");
     setLoading(true);
     try {
-      await axios.post(
+      const res = await axios.post(
         `${API_URL}/api/deposits/request`,
         {
           amount: parseFloat(amount),
@@ -97,13 +111,48 @@ export default function DepositPage() {
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      setSuccess("Deposit request submitted. Admin will review and credit your balance.");
+
+      const data = res.data || {};
+      const bankName = data.bank_name || banks.find((b) => b.key === bankKey)?.name || bankKey;
+      const amt = data.amount ?? parseFloat(amount);
+      const username = data.username || "user";
+      const depositId = data.deposit_id;
+      const numbers: string[] =
+        Array.isArray(data.whatsapp_numbers) && data.whatsapp_numbers.length
+          ? data.whatsapp_numbers
+          : whatsappNumbers;
+
+      const msg =
+        `Assalam o Alaikum Admin,\n\n` +
+        `Maine deposit request submit ki hai.\n\n` +
+        `👤 User: ${username}\n` +
+        `💰 Amount: $${Number(amt).toFixed(2)}\n` +
+        `🏦 Bank: ${bankName}\n` +
+        `📝 Slip/Note: ${slipNote || "—"}\n` +
+        `🆔 Request ID: #${depositId}\n\n` +
+        `Receipt / screenshot is message ke sath attach kar raha/rahi hoon. ` +
+        `Please verify karke mera balance credit kar dein. Shukriya.`;
+
+      setSuccess(
+        "Request submit ho gayi. Ab WhatsApp open hoga — receipt bhej dein. Admin balance credit karega."
+      );
       setAmount("");
       setSlipNote("");
       fetchMy();
+
+      if (numbers.length === 0) {
+        setError(
+          "Admin WhatsApp number set nahi hai. Request save ho gayi — Admin panel se number set karein."
+        );
+      } else {
+        openWhatsApp(numbers[0], msg);
+        if (numbers[1]) {
+          setTimeout(() => openWhatsApp(numbers[1], msg), 800);
+        }
+      }
     } catch (err: any) {
       const detail = err.response?.data?.detail;
-      setError(typeof detail === "string" ? detail : "Failed to submit deposit request");
+      setError(typeof detail === "string" ? detail : "Deposit request fail ho gayi");
     } finally {
       setLoading(false);
     }
@@ -137,14 +186,14 @@ export default function DepositPage() {
         )}
 
         <div className="card p-6 space-y-5">
-          <h2 className="text-lg font-semibold text-white">Request Deposit</h2>
+          <h2 className="text-lg font-semibold text-white">Deposit Request</h2>
           <p className="text-sm text-gray-400">
-            Transfer to one of the banks below, then submit the amount + slip note. Admin will approve and credit your balance.
+            Bank transfer karke amount + slip note submit karein. Submit ke baad WhatsApp open hoga — admin ko receipt bhej dein.
           </p>
 
           {banks.length === 0 ? (
             <div className="bg-amber-500/10 border border-amber-500/30 text-amber-300 p-3.5 rounded-xl text-sm">
-              No banks configured yet. Ask admin to set bank details in Admin → Settings.
+              Abhi koi bank set nahi. Admin se bank details set karwayein (Admin → Settings).
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -188,7 +237,7 @@ export default function DepositPage() {
                       {selectedBank.details}
                     </pre>
                   ) : (
-                    <p className="text-amber-400 text-xs">Details not set — contact admin.</p>
+                    <p className="text-amber-400 text-xs">Details set nahi — admin se poochhein.</p>
                   )}
                 </div>
               )}
@@ -200,22 +249,28 @@ export default function DepositPage() {
                   onChange={(e) => setSlipNote(e.target.value)}
                   rows={3}
                   className="w-full bg-[#12151c] border border-[#2a2f3d] rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-blue-500"
-                  placeholder="Transaction ID / screenshot note / time of transfer"
+                  placeholder="Transaction ID / time / screenshot note"
                   required
                 />
               </div>
 
               <button type="submit" disabled={loading || !bankKey} className="w-full btn-primary py-3">
-                {loading ? "Submitting..." : "Submit Deposit Request"}
+                {loading ? "Submitting..." : "Submit & WhatsApp pe bhejein"}
               </button>
+
+              {whatsappNumbers.length > 0 && (
+                <p className="text-xs text-center text-gray-500">
+                  Admin WhatsApp set hai ({whatsappNumbers.length}). Submit ke baad chat open hogi.
+                </p>
+              )}
             </form>
           )}
         </div>
 
         <div className="card p-6">
-          <h2 className="text-lg font-semibold text-white mb-4">My Deposit Requests</h2>
+          <h2 className="text-lg font-semibold text-white mb-4">Meray Deposit Requests</h2>
           {myDeposits.length === 0 ? (
-            <p className="text-sm text-gray-500">No requests yet.</p>
+            <p className="text-sm text-gray-500">Abhi koi request nahi.</p>
           ) : (
             <div className="space-y-3">
               {myDeposits.map((d) => (
