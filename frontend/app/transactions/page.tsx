@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+import AppHeader from "../components/AppHeader";
 import axios from "axios";
 import Cookies from "js-cookie";
 
@@ -59,15 +59,7 @@ export default function TransactionsPage() {
 
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-20 bg-[#0f1117]/80 backdrop-blur-xl border-b border-[#2a2f3d]">
-        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/dashboard" className="text-gray-400 hover:text-white text-sm flex items-center gap-1.5">
-            ← Dashboard
-          </Link>
-          <h1 className="font-semibold text-white">Transactions</h1>
-          <div className="w-20" />
-        </div>
-      </header>
+      <AppHeader title="Transactions" />
 
       <main className="max-w-4xl mx-auto px-4 py-8">
         <div className="card overflow-hidden">
