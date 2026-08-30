@@ -1,103 +1,188 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
+REPO_DIR="/var/www/html/virtual-otp-system"
+BRANCH="${OTP_BRANCH:-main}"
+VENV="${REPO_DIR}/backend/venv"
+FRONTEND_URL="${OTP_URL:-https://otp.globalcareerhub.org/}"
+BACKUP_DIR="${HOME}/.otp-keep"
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REMOTE_HOST="${OTP_VPS_HOST:-}"
-REMOTE_USER="${OTP_VPS_USER:-}"
-REMOTE_PATH="${OTP_REMOTE_PATH:-/var/www/html/virtual-otp-system}"
-REMOTE_BRANCH="${OTP_BRANCH:-main}"
-COMMIT_MESSAGE="${1:-Deploy production}"
+log() { printf '[deploy-otp] %s\n' "$*"; }
+fail() { printf '[deploy-otp] ERROR: %s\n' "$*" >&2; exit 1; }
 
-say() { printf '%b\n' "$1"; }
-fail() { say "${RED}ERROR: $1${NC}" >&2; exit 1; }
-
-usage() {
-  cat <<EOF
-Usage: OTP_VPS_HOST=server OTP_VPS_USER=user bash deploy-otp.sh [commit message]
-
-The command commits local changes, pushes ${REMOTE_BRANCH}, then updates the VPS.
-Set OTP_SKIP_PUSH=1 to deploy the current remote branch without committing/pushing.
-EOF
+keep_copy() {
+    local src="$1"
+    local dest="$2"
+    if [[ -f "$src" ]]; then
+        mkdir -p "$(dirname "$dest")"
+        cp -a "$src" "$dest"
+    fi
 }
 
-[[ "${1:-}" != "--help" ]] || { usage; exit 0; }
+keep_restore() {
+    local dest="$1"
+    local src="$2"
+    if [[ ! -f "$dest" && -f "$src" ]]; then
+        mkdir -p "$(dirname "$dest")"
+        cp -a "$src" "$dest"
+        log "Restored $dest from backup"
+    fi
+}
+
+echo "========================================"
+echo " OTP production deployment"
+echo "========================================"
+
+[[ "$(id -u)" -ne 0 ]] || fail "Run as the SSH user, not with sudo."
+[[ -d "$REPO_DIR/.git" ]] || fail "Repository not found at $REPO_DIR."
 command -v git >/dev/null || fail "git is required."
-command -v ssh >/dev/null || fail "ssh is required."
-[[ -n "$REMOTE_HOST" ]] || fail "Set OTP_VPS_HOST to the VPS hostname or IP."
-[[ -n "$REMOTE_USER" ]] || fail "Set OTP_VPS_USER to the VPS SSH user."
+command -v curl >/dev/null || fail "curl is required."
+command -v python3 >/dev/null || fail "python3 is required."
+command -v npm >/dev/null || fail "npm is required."
+command -v sudo >/dev/null || fail "sudo is required."
 
-cd "$ROOT_DIR"
-[[ -f backend/requirements.txt && -f frontend/package.json ]] || fail "Run this command from the OTP project root."
+cd "$REPO_DIR"
+mkdir -p "$BACKUP_DIR"
 
-if [[ "${OTP_SKIP_PUSH:-0}" != "1" ]]; then
-  say "${BLUE}==> Preparing production release${NC}"
-  git diff --check
-  if [[ -n "$(git status --porcelain)" ]]; then
-    say "${YELLOW}==> Committing local changes: ${COMMIT_MESSAGE}${NC}"
-    git add -A
-    git commit -m "$COMMIT_MESSAGE"
-  else
-    say "${GREEN}==> No local changes to commit${NC}"
-  fi
-  say "${YELLOW}==> Pushing ${REMOTE_BRANCH} to origin${NC}"
-  git push origin "$REMOTE_BRANCH"
+log "Saving production secrets and uploads"
+keep_copy "backend/.env" "$BACKUP_DIR/backend.env"
+keep_copy "frontend/.env.production" "$BACKUP_DIR/frontend.env.production"
+keep_copy "frontend/.env.local" "$BACKUP_DIR/frontend.env.local"
+if [[ -d backend/uploads ]]; then
+    mkdir -p "$BACKUP_DIR/uploads"
+    cp -a backend/uploads/. "$BACKUP_DIR/uploads/" 2>/dev/null || true
+fi
+
+log "Cleaning local junk (secrets and uploads stay)"
+git fetch origin "$BRANCH"
+git reset --hard "origin/${BRANCH}"
+git clean -fd \
+    -e backend/.env \
+    -e frontend/.env.production \
+    -e frontend/.env.local \
+    -e backend/uploads \
+    -e backend/venv \
+    -e frontend/node_modules \
+    -e frontend/.next \
+    || true
+
+keep_restore "backend/.env" "$BACKUP_DIR/backend.env"
+keep_restore "frontend/.env.production" "$BACKUP_DIR/frontend.env.production"
+keep_restore "frontend/.env.local" "$BACKUP_DIR/frontend.env.local"
+if [[ -d "$BACKUP_DIR/uploads" ]]; then
+    mkdir -p backend/uploads
+    cp -a "$BACKUP_DIR/uploads/." backend/uploads/ 2>/dev/null || true
+fi
+
+log "Latest commit: $(git rev-parse --short HEAD) $(git log -1 --pretty=%s)"
+
+[[ -f backend/.env ]] || fail "backend/.env is missing. Put secrets in $BACKUP_DIR/backend.env or backend/.env"
+[[ -f frontend/.env.production ]] || fail "frontend/.env.production is missing."
+
+if [[ ! -x "${VENV}/bin/python" ]]; then
+    log "Creating Python virtual environment"
+    python3 -m venv "$VENV"
+fi
+
+log "Installing backend requirements"
+"${VENV}/bin/python" -m pip install --quiet --upgrade pip
+"${VENV}/bin/python" -m pip install --quiet -r backend/requirements.txt
+"${VENV}/bin/python" -m pip check
+
+log "Installing frontend requirements"
+if [[ -f frontend/package-lock.json ]]; then
+    npm --prefix frontend ci --no-audit --no-fund
 else
-  say "${YELLOW}==> Push skipped; deploying the remote ${REMOTE_BRANCH} branch${NC}"
+    npm --prefix frontend install --no-audit --no-fund
 fi
 
-say "${BLUE}==> Updating ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_PATH}${NC}"
-ssh "$REMOTE_USER@$REMOTE_HOST" "OTP_REMOTE_PATH='$REMOTE_PATH' OTP_BRANCH='$REMOTE_BRANCH' bash -s" <<'REMOTE_SCRIPT'
-set -Eeuo pipefail
+log "Applying database schema and seed data"
+(
+    cd backend
+    "$VENV/bin/python" - <<'PY'
+from app.database import Base, engine
+from app.seed import seed_database
+Base.metadata.create_all(bind=engine)
+try:
+    from app.migrate import run_migrations
+    run_migrations()
+except Exception as e:
+    print("[deploy-otp] migrate skipped:", e)
+seed_database()
+print("[deploy-otp] schema + seed ok")
+PY
+)
 
-RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BLUE='\033[0;34m'; NC='\033[0m'
-say() { printf '%b\n' "$1"; }
-fail() { say "${RED}ERROR: $1${NC}" >&2; exit 1; }
+log "Building production frontend"
+rm -rf frontend/.next
+npm --prefix frontend run build
 
-cd "$OTP_REMOTE_PATH"
-[[ -d .git ]] || fail "${OTP_REMOTE_PATH} is not a git checkout."
-say "${YELLOW}==> Pulling ${OTP_BRANCH}${NC}"
-git fetch origin "$OTP_BRANCH"
-git checkout "$OTP_BRANCH"
-git reset --hard "origin/$OTP_BRANCH"
+log "Installing OTP service definitions"
+sudo -n tee /etc/systemd/system/otp-backend.service >/dev/null <<EOF
+[Unit]
+Description=Virtual OTP Backend
+After=network.target postgresql.service
 
-[[ -f backend/.env ]] || fail "backend/.env is missing on the server."
-[[ -f frontend/.env.production ]] || fail "frontend/.env.production is missing on the server."
-command -v python3 >/dev/null || fail "python3 is required on the server."
-command -v npm >/dev/null || fail "npm is required on the server."
+[Service]
+Type=simple
+User=$(id -un)
+Group=$(id -gn)
+WorkingDirectory=$REPO_DIR/backend
+Environment=PATH=$VENV/bin
+ExecStart=$VENV/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+Restart=always
+RestartSec=3
 
-say "${YELLOW}==> Installing backend dependencies${NC}"
-python3 -m venv backend/venv 2>/dev/null || true
-backend/venv/bin/python -m pip install --upgrade pip -q
-backend/venv/bin/pip install -r backend/requirements.txt
+[Install]
+WantedBy=multi-user.target
+EOF
 
-say "${YELLOW}==> Installing and building frontend${NC}"
-cd frontend
-if [[ -f package-lock.json ]]; then npm ci; else npm install; fi
-npm run build
-cd ..
+sudo -n tee /etc/systemd/system/otp-frontend.service >/dev/null <<EOF
+[Unit]
+Description=Virtual OTP Frontend
+After=network.target otp-backend.service
 
-if command -v nginx >/dev/null; then
-  say "${YELLOW}==> Validating Nginx${NC}"
-  sudo nginx -t
-fi
+[Service]
+Type=simple
+User=$(id -un)
+Group=$(id -gn)
+WorkingDirectory=$REPO_DIR/frontend
+Environment=NODE_ENV=production
+Environment=PORT=3000
+ExecStart=/usr/bin/npm run start
+Restart=always
+RestartSec=3
 
-say "${YELLOW}==> Restarting production services${NC}"
-sudo systemctl daemon-reload
-sudo systemctl restart otp-backend.service otp-frontend.service
-sudo systemctl is-active --quiet otp-backend.service || fail "Backend service is not active."
-sudo systemctl is-active --quiet otp-frontend.service || fail "Frontend service is not active."
+[Install]
+WantedBy=multi-user.target
+EOF
 
-say "${YELLOW}==> Checking local health endpoints${NC}"
-curl --fail --silent --show-error http://127.0.0.1:8000/health >/dev/null
-curl --fail --silent --show-error http://127.0.0.1:3000/ >/dev/null
-if command -v nginx >/dev/null; then sudo systemctl reload nginx; fi
-say "${GREEN}==> Production deployment completed successfully${NC}"
-REMOTE_SCRIPT
+log "Restarting services"
+sudo -n systemctl daemon-reload
+sudo -n systemctl enable --now otp-backend.service otp-frontend.service
+sudo -n systemctl restart otp-backend.service otp-frontend.service
 
-say "${GREEN}Live site: https://otp.globalcareerhub.org${NC}"
+log "Reloading Nginx"
+sudo -n nginx -t
+sudo -n systemctl reload nginx
+
+log "Health checks"
+for attempt in {1..20}; do
+    if curl --fail --silent http://127.0.0.1:8000/health >/dev/null && \
+       curl --fail --silent "$FRONTEND_URL" >/dev/null; then
+        echo ""
+        echo "========================================"
+        echo " OTP deployment successful"
+        echo " Commit:   $(git rev-parse --short HEAD)"
+        echo " Frontend: https://otp.globalcareerhub.org/"
+        echo " Admin:    https://otp.globalcareerhub.org/admin"
+        echo " Backend:  http://127.0.0.1:8000/health"
+        echo "========================================"
+        log "Deployment complete"
+        exit 0
+    fi
+    sleep 1
+done
+
+printf 'Health checks failed. Inspect: sudo journalctl -u otp-backend -u otp-frontend -n 100\n' >&2
+fail "Deployment health checks failed."

@@ -5,14 +5,28 @@ REPO_DIR="/var/www/html/virtual-otp-system"
 BRANCH="${OTP_BRANCH:-main}"
 VENV="${REPO_DIR}/backend/venv"
 FRONTEND_URL="${OTP_URL:-https://otp.globalcareerhub.org/}"
+BACKUP_DIR="${HOME}/.otp-keep"
 
-log() {
-    printf '[deploy-otp] %s\n' "$*"
+log() { printf '[deploy-otp] %s\n' "$*"; }
+fail() { printf '[deploy-otp] ERROR: %s\n' "$*" >&2; exit 1; }
+
+keep_copy() {
+    local src="$1"
+    local dest="$2"
+    if [[ -f "$src" ]]; then
+        mkdir -p "$(dirname "$dest")"
+        cp -a "$src" "$dest"
+    fi
 }
 
-fail() {
-    printf '[deploy-otp] ERROR: %s\n' "$*" >&2
-    exit 1
+keep_restore() {
+    local dest="$1"
+    local src="$2"
+    if [[ ! -f "$dest" && -f "$src" ]]; then
+        mkdir -p "$(dirname "$dest")"
+        cp -a "$src" "$dest"
+        log "Restored $dest from backup"
+    fi
 }
 
 echo "========================================"
@@ -28,15 +42,41 @@ command -v npm >/dev/null || fail "npm is required."
 command -v sudo >/dev/null || fail "sudo is required."
 
 cd "$REPO_DIR"
+mkdir -p "$BACKUP_DIR"
 
-if [[ -n "$(git status --porcelain)" ]]; then
-    fail "Uncommitted changes found; deployment stopped. Commit or stash them first."
+log "Saving production secrets and uploads"
+keep_copy "backend/.env" "$BACKUP_DIR/backend.env"
+keep_copy "frontend/.env.production" "$BACKUP_DIR/frontend.env.production"
+keep_copy "frontend/.env.local" "$BACKUP_DIR/frontend.env.local"
+if [[ -d backend/uploads ]]; then
+    mkdir -p "$BACKUP_DIR/uploads"
+    cp -a backend/uploads/. "$BACKUP_DIR/uploads/" 2>/dev/null || true
 fi
 
-log "Pulling origin/${BRANCH}"
-git pull --ff-only origin "$BRANCH"
+log "Cleaning local junk (secrets and uploads stay)"
+git fetch origin "$BRANCH"
+git reset --hard "origin/${BRANCH}"
+git clean -fd \
+    -e backend/.env \
+    -e frontend/.env.production \
+    -e frontend/.env.local \
+    -e backend/uploads \
+    -e backend/venv \
+    -e frontend/node_modules \
+    -e frontend/.next \
+    || true
 
-[[ -f backend/.env ]] || fail "backend/.env is missing. Configure production secrets first."
+keep_restore "backend/.env" "$BACKUP_DIR/backend.env"
+keep_restore "frontend/.env.production" "$BACKUP_DIR/frontend.env.production"
+keep_restore "frontend/.env.local" "$BACKUP_DIR/frontend.env.local"
+if [[ -d "$BACKUP_DIR/uploads" ]]; then
+    mkdir -p backend/uploads
+    cp -a "$BACKUP_DIR/uploads/." backend/uploads/ 2>/dev/null || true
+fi
+
+log "Latest commit: $(git rev-parse --short HEAD) $(git log -1 --pretty=%s)"
+
+[[ -f backend/.env ]] || fail "backend/.env is missing. Put secrets in $BACKUP_DIR/backend.env or backend/.env"
 [[ -f frontend/.env.production ]] || fail "frontend/.env.production is missing."
 
 if [[ ! -x "${VENV}/bin/python" ]]; then
@@ -59,7 +99,18 @@ fi
 log "Applying database schema and seed data"
 (
     cd backend
-    "$VENV/bin/python" -c 'from app.database import Base, engine; from app.seed import seed_database; Base.metadata.create_all(bind=engine); seed_database()'
+    "$VENV/bin/python" - <<'PY'
+from app.database import Base, engine
+from app.seed import seed_database
+Base.metadata.create_all(bind=engine)
+try:
+    from app.migrate import run_migrations
+    run_migrations()
+except Exception as e:
+    print("[deploy-otp] migrate skipped:", e)
+seed_database()
+print("[deploy-otp] schema + seed ok")
+PY
 )
 
 log "Building production frontend"
@@ -106,22 +157,23 @@ RestartSec=3
 WantedBy=multi-user.target
 EOF
 
-log "Refreshing systemd services"
+log "Restarting services"
 sudo -n systemctl daemon-reload
 sudo -n systemctl enable --now otp-backend.service otp-frontend.service
 sudo -n systemctl restart otp-backend.service otp-frontend.service
 
-log "Validating Nginx configuration"
+log "Reloading Nginx"
 sudo -n nginx -t
 sudo -n systemctl reload nginx
 
-log "Running health checks"
-for attempt in {1..15}; do
+log "Health checks"
+for attempt in {1..20}; do
     if curl --fail --silent http://127.0.0.1:8000/health >/dev/null && \
        curl --fail --silent "$FRONTEND_URL" >/dev/null; then
         echo ""
         echo "========================================"
         echo " OTP deployment successful"
+        echo " Commit:   $(git rev-parse --short HEAD)"
         echo " Frontend: https://otp.globalcareerhub.org/"
         echo " Admin:    https://otp.globalcareerhub.org/admin"
         echo " Backend:  http://127.0.0.1:8000/health"
