@@ -112,9 +112,11 @@ class FiveSimService:
             cost = float(info.get("cost") or 0)
             count = int(info.get("count") or 0)
             rate = float(info.get("rate") or 0)
-            total_stock += max(count, 0)
             if cost > 0 and (listed_cost is None or cost < listed_cost):
                 listed_cost = cost
+            if str(op_name).lower() == "any":
+                return
+            total_stock += max(count, 0)
             if count > 0 and cost > 0:
                 if live_cost is None or cost < live_cost:
                     live_cost = cost
@@ -201,6 +203,8 @@ class FiveSimService:
                 continue
             if "cost" not in info and "count" not in info:
                 continue
+            if str(name).lower() == "any":
+                continue
             cost = float(info.get("cost") or 0)
             count = int(info.get("count") or 0)
             if count <= 0 or cost <= 0:
@@ -219,8 +223,8 @@ class FiveSimService:
                 ops = cval.get(product, cval) if isinstance(cval, dict) else {}
                 if not isinstance(ops, dict):
                     continue
-                for info in ops.values():
-                    if not isinstance(info, dict):
+                for op_name, info in ops.items():
+                    if not isinstance(info, dict) or str(op_name).lower() == "any":
                         continue
                     cost = float(info.get("cost") or 0)
                     count = int(info.get("count") or 0)
@@ -234,8 +238,8 @@ class FiveSimService:
             ops = cval.get(product) if product in cval else None
             if not isinstance(ops, dict):
                 continue
-            for info in ops.values():
-                if not isinstance(info, dict):
+            for op_name, info in ops.items():
+                if not isinstance(info, dict) or str(op_name).lower() == "any":
                     continue
                 cost = float(info.get("cost") or 0)
                 count = int(info.get("count") or 0)
@@ -257,12 +261,12 @@ class FiveSimService:
         operators = self._country_operators(raw, target, product)
         names = []
         parsed = self.parse_best_price(raw, target, product)
-        if parsed.get("operator"):
+        if parsed.get("operator") and str(parsed.get("operator")).lower() != "any":
             names.append(str(parsed["operator"]))
-        names.append("any")
         for item in operators:
             if item["name"] not in names:
                 names.append(item["name"])
+        names.append("any")
         last_err = None
         for op in names:
             try:
