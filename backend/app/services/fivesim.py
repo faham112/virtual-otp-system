@@ -5,7 +5,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Known plain-text error bodies 5sim returns with HTTP 200
 FIVESIM_TEXT_ERRORS = {
     "no free phones": "No free phones available for this country/service right now. Try another country or wait a few minutes.",
     "not enough user balance": "5sim provider wallet has insufficient balance. Top up the 5sim account.",
@@ -25,12 +24,10 @@ def _safe_json(response: httpx.Response) -> Dict[str, Any]:
         raise Exception(
             f"5sim returned empty body (HTTP {response.status_code}). Check API key."
         )
-
     lower = text.lower()
     for key, friendly in FIVESIM_TEXT_ERRORS.items():
         if key in lower:
             raise Exception(friendly)
-
     try:
         return response.json()
     except Exception:
@@ -185,6 +182,101 @@ class FiveSimService:
             "rate": float(live_rate),
             "operator": live_operator,
         }
+
+    def _country_operators(self, data: Dict[str, Any], country: str, product: str) -> list:
+        country = (country or "").lower().strip()
+        product = (product or "").lower().strip()
+        payload = data if isinstance(data, dict) else {}
+        block = payload.get(country)
+        if block is None and product in payload and isinstance(payload.get(product), dict):
+            block = payload[product].get(country)
+        if not isinstance(block, dict):
+            return []
+        ops = block.get(product) if product in block and isinstance(block.get(product), dict) else block
+        out = []
+        if not isinstance(ops, dict):
+            return out
+        for name, info in ops.items():
+            if not isinstance(info, dict):
+                continue
+            if "cost" not in info and "count" not in info:
+                continue
+            cost = float(info.get("cost") or 0)
+            count = int(info.get("count") or 0)
+            if count <= 0 or cost <= 0:
+                continue
+            out.append({"name": str(name), "cost": cost, "count": count})
+        out.sort(key=lambda x: (x["cost"], -x["count"]))
+        return out
+
+    def _cheapest_country(self, data: Dict[str, Any], product: str) -> str:
+        product = (product or "").lower().strip()
+        payload = data if isinstance(data, dict) else {}
+        best_country = None
+        best_cost = None
+        if product in payload and isinstance(payload.get(product), dict):
+            for ckey, cval in payload[product].items():
+                ops = cval.get(product, cval) if isinstance(cval, dict) else {}
+                if not isinstance(ops, dict):
+                    continue
+                for info in ops.values():
+                    if not isinstance(info, dict):
+                        continue
+                    cost = float(info.get("cost") or 0)
+                    count = int(info.get("count") or 0)
+                    if count > 0 and cost > 0 and (best_cost is None or cost < best_cost):
+                        best_cost = cost
+                        best_country = str(ckey).lower()
+            return best_country or "any"
+        for ckey, cval in payload.items():
+            if not isinstance(cval, dict):
+                continue
+            ops = cval.get(product) if product in cval else None
+            if not isinstance(ops, dict):
+                continue
+            for info in ops.values():
+                if not isinstance(info, dict):
+                    continue
+                cost = float(info.get("cost") or 0)
+                count = int(info.get("count") or 0)
+                if count > 0 and cost > 0 and (best_cost is None or cost < best_cost):
+                    best_cost = cost
+                    best_country = str(ckey).lower()
+        return best_country or "any"
+
+    async def buy_best(self, country: str, product: str) -> Dict[str, Any]:
+        country = (country or "any").lower().strip()
+        product = (product or "").lower().strip()
+        raw = await self.get_prices(
+            country=None if country == "any" else country,
+            product=product,
+        )
+        target = country
+        if target == "any":
+            target = self._cheapest_country(raw, product)
+        operators = self._country_operators(raw, target, product)
+        names = []
+        parsed = self.parse_best_price(raw, target, product)
+        if parsed.get("operator"):
+            names.append(str(parsed["operator"]))
+        names.append("any")
+        for item in operators:
+            if item["name"] not in names:
+                names.append(item["name"])
+        last_err = None
+        for op in names:
+            try:
+                result = await self.buy_number(target, op, product)
+                result["_resolved_country"] = target
+                result["_resolved_operator"] = op
+                return result
+            except Exception as e:
+                last_err = e
+                msg = str(e).lower()
+                if "no free phones" in msg or "out of stock" in msg or "unavailable" in msg:
+                    continue
+                raise
+        raise last_err or Exception("No free phones available for this country/service right now.")
 
     async def buy_number(
         self, country: str, operator: str, product: str
