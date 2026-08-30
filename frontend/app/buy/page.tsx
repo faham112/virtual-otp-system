@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import axios from "axios";
@@ -56,6 +56,9 @@ export default function BuyPage() {
   const [quote, setQuote] = useState<any>(null);
   const [stockMap, setStockMap] = useState<Record<string, any>>({});
   const [hint, setHint] = useState("");
+  const [copied, setCopied] = useState<"phone" | "otp" | null>(null);
+  const [cancelling, setCancelling] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const selectedCountry = COUNTRIES.find((c) => c.value === country);
 
@@ -139,11 +142,51 @@ export default function BuyPage() {
     fetchPrice();
   }, [fetchPrice]);
 
+  // Live OTP poll while order is pending
+  useEffect(() => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+    if (!success?.id) return;
+    if (success.status && success.status !== "pending") return;
+
+    const token = Cookies.get("token");
+    if (!token) return;
+
+    const poll = async () => {
+      try {
+        const res = await axios.get(`${API_URL}/api/orders/${success.id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setSuccess(res.data);
+        if (res.data.status && res.data.status !== "pending") {
+          if (pollRef.current) {
+            clearInterval(pollRef.current);
+            pollRef.current = null;
+          }
+        }
+      } catch {
+        // ignore transient errors
+      }
+    };
+
+    poll();
+    pollRef.current = setInterval(poll, 5000);
+    return () => {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+    };
+  }, [success?.id, success?.status]);
+
   const handleBuy = async () => {
     setLoading(true);
     setError("");
     setHint("");
     setSuccess(null);
+    setCopied(null);
 
     const token = Cookies.get("token");
     if (!token) {
@@ -199,6 +242,49 @@ export default function BuyPage() {
     }
   };
 
+  const copyText = async (text: string, kind: "phone" | "otp") => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(kind);
+      setTimeout(() => setCopied(null), 1500);
+    } catch {
+      alert(text);
+    }
+  };
+
+  const cancelOrder = async () => {
+    if (!success?.id) return;
+    if (!confirm("Cancel this order and get refund?")) return;
+    setCancelling(true);
+    const token = Cookies.get("token");
+    try {
+      await axios.post(
+        `${API_URL}/api/orders/${success.id}/cancel`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setSuccess((prev: any) => (prev ? { ...prev, status: "cancelled" } : prev));
+    } catch (err: any) {
+      alert(err.response?.data?.detail || "Cancel failed");
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const resetToBuy = () => {
+    setSuccess(null);
+    setError("");
+    setHint("");
+    setCopied(null);
+    fetchPrice();
+    fetchStock();
+  };
+
+  const status = (success?.status || "pending").toLowerCase();
+  const isPending = status === "pending";
+  const isDone = status === "completed";
+  const isFailed = status === "failed" || status === "cancelled";
+
   return (
     <div className="min-h-screen">
       <header className="sticky top-0 z-20 bg-[#0f1117]/80 backdrop-blur-xl border-b border-[#2a2f3d]">
@@ -228,35 +314,144 @@ export default function BuyPage() {
           )}
 
           {success ? (
-            <div className="text-center space-y-5 py-4">
-              <div className="w-16 h-16 mx-auto rounded-full bg-emerald-500/15 flex items-center justify-center">
-                <svg className="w-8 h-8 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
+            <div className="space-y-5 py-2">
+              <div className="text-center space-y-3">
+                <div
+                  className={`w-14 h-14 mx-auto rounded-full flex items-center justify-center ${
+                    isDone
+                      ? "bg-emerald-500/15"
+                      : isFailed
+                      ? "bg-red-500/15"
+                      : "bg-blue-500/15"
+                  }`}
+                >
+                  {isPending ? (
+                    <svg className="animate-spin h-7 w-7 text-blue-400" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                  ) : isDone ? (
+                    <svg className="w-7 h-7 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  ) : (
+                    <svg className="w-7 h-7 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  )}
+                </div>
+
+                <div>
+                  <p
+                    className={`font-medium mb-1 ${
+                      isDone ? "text-emerald-400" : isFailed ? "text-red-400" : "text-blue-300"
+                    }`}
+                  >
+                    {isDone ? "OTP Received!" : isFailed ? `Order ${status}` : "Number Purchased"}
+                  </p>
+                  <div className="flex items-center justify-center gap-2">
+                    <p className="text-2xl sm:text-3xl font-mono font-bold text-white tracking-wider">
+                      {success.phone_number || "—"}
+                    </p>
+                    {success.phone_number && (
+                      <button
+                        type="button"
+                        onClick={() => copyText(success.phone_number, "phone")}
+                        className="text-xs text-gray-400 hover:text-white border border-[#2a2f3d] px-2 py-1 rounded-lg"
+                      >
+                        {copied === "phone" ? "Copied" : "Copy"}
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-400 mt-1.5">
+                    {success.service} · {success.country} · ${Number(success.cost || 0).toFixed(4)}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-emerald-400 font-medium mb-2">Number Purchased!</p>
-                <p className="text-3xl font-mono font-bold text-white tracking-wider">
-                  {success.phone_number}
-                </p>
-                <p className="text-sm text-gray-400 mt-2">Charged: ${success.cost?.toFixed(4)}</p>
+
+              <div
+                className={`rounded-2xl border p-5 space-y-4 ${
+                  isDone
+                    ? "bg-emerald-500/10 border-emerald-500/30"
+                    : isFailed
+                    ? "bg-red-500/10 border-red-500/30"
+                    : "bg-[#12151c] border-[#2a2f3d]"
+                }`}
+              >
+                {isPending && (
+                  <>
+                    <div className="flex items-center gap-3">
+                      <span className="relative flex h-3 w-3">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-400" />
+                      </span>
+                      <p className="text-amber-300 font-medium text-sm">Waiting for OTP…</p>
+                    </div>
+                    <p className="text-sm text-gray-400 leading-relaxed">
+                      Use this number on the app/site now. SMS code will appear here automatically
+                      (checks every 5 seconds). Usually arrives within 1–2 minutes.
+                    </p>
+                    <div className="flex items-center justify-center gap-2 py-3">
+                      <div className="h-10 min-w-[10rem] rounded-xl bg-[#0f1117] border border-dashed border-[#2a2f3d] flex items-center justify-center">
+                        <span className="font-mono text-gray-600 tracking-[0.35em] text-lg">······</span>
+                      </div>
+                    </div>
+                    <p className="text-xs text-center text-gray-500">
+                      Auto-refreshing · Full refund if timeout / no SMS
+                    </p>
+                  </>
+                )}
+
+                {isDone && (
+                  <>
+                    <p className="text-xs text-emerald-300/80 uppercase tracking-wide">OTP Code</p>
+                    <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                      <p className="text-4xl font-mono font-bold text-emerald-400 tracking-[0.2em]">
+                        {success.otp_code}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => copyText(String(success.otp_code), "otp")}
+                        className="text-sm bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 px-4 py-2 rounded-xl transition"
+                      >
+                        {copied === "otp" ? "Copied!" : "Copy OTP"}
+                      </button>
+                    </div>
+                    {success.sms_text && (
+                      <p className="text-xs text-gray-500 bg-[#0f1117]/60 rounded-lg p-3 font-mono break-all">
+                        {success.sms_text}
+                      </p>
+                    )}
+                  </>
+                )}
+
+                {isFailed && (
+                  <p className="text-sm text-red-300 text-center">
+                    {status === "cancelled"
+                      ? "Order cancelled. Amount refunded to your wallet."
+                      : "Order failed or timed out. Amount refunded to your wallet."}
+                  </p>
+                )}
               </div>
-              <p className="text-sm text-gray-400">
-                Waiting for OTP. It will appear automatically on your Dashboard.
-              </p>
-              <div className="flex gap-3 justify-center pt-2">
-                <Link href="/dashboard" className="btn-primary text-sm">
-                  Go to Dashboard
+
+              <div className="flex flex-col sm:flex-row gap-3 justify-center pt-1">
+                {isPending && (
+                  <button
+                    type="button"
+                    onClick={cancelOrder}
+                    disabled={cancelling}
+                    className="text-sm text-red-400 hover:text-red-300 border border-red-500/30 px-5 py-2.5 rounded-xl transition disabled:opacity-50"
+                  >
+                    {cancelling ? "Cancelling…" : "Cancel & Refund"}
+                  </button>
+                )}
+                <Link href="/dashboard" className="btn-ghost text-sm text-center px-5 py-2.5">
+                  Dashboard
                 </Link>
                 <button
-                  onClick={() => {
-                    setSuccess(null);
-                    setError("");
-                    setHint("");
-                    fetchPrice();
-                    fetchStock();
-                  }}
-                  className="bg-[#12151c] hover:bg-[#1e2230] border border-[#2a2f3d] text-gray-300 text-sm px-5 py-2.5 rounded-xl transition"
+                  type="button"
+                  onClick={resetToBuy}
+                  className="btn-primary text-sm px-5 py-2.5"
                 >
                   Buy Another
                 </button>
