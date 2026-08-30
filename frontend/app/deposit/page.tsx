@@ -8,13 +8,19 @@ import Cookies from "js-cookie";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+type Bank = {
+  key: string;
+  name: string;
+  details: string;
+  type: string;
+};
+
 export default function DepositPage() {
   const router = useRouter();
-  const [banks, setBanks] = useState<any[]>([]);
+  const [banks, setBanks] = useState<Bank[]>([]);
   const [amount, setAmount] = useState("");
-  const [bankId, setBankId] = useState("");
+  const [bankKey, setBankKey] = useState("");
   const [slipNote, setSlipNote] = useState("");
-  const [whatsapp, setWhatsapp] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -29,10 +35,18 @@ export default function DepositPage() {
       const res = await axios.get(`${API_URL}/api/deposits/banks`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setBanks(res.data || []);
-      if (res.data?.length && !bankId) setBankId(String(res.data[0].id));
-    } catch {}
-  }, [token, bankId]);
+      // Backend returns { banks: [...] }
+      const list: Bank[] = Array.isArray(res.data?.banks)
+        ? res.data.banks
+        : Array.isArray(res.data)
+        ? res.data
+        : [];
+      setBanks(list);
+      if (list.length && !bankKey) setBankKey(list[0].key);
+    } catch {
+      setBanks([]);
+    }
+  }, [token, bankKey]);
 
   const fetchMy = useCallback(async () => {
     if (!token) return;
@@ -40,18 +54,22 @@ export default function DepositPage() {
       const res = await axios.get(`${API_URL}/api/deposits/my`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setMyDeposits(res.data || []);
-    } catch {}
+      setMyDeposits(Array.isArray(res.data) ? res.data : []);
+    } catch {
+      setMyDeposits([]);
+    }
   }, [token]);
 
   const fetchBalance = useCallback(async () => {
     if (!token) return;
     try {
-      const res = await axios.get(`${API_URL}/api/auth/me`, {
+      const res = await axios.get(`${API_URL}/api/users/me`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setBalance(res.data?.balance ?? null);
-    } catch {}
+    } catch {
+      setBalance(null);
+    }
   }, [token]);
 
   useEffect(() => {
@@ -74,23 +92,24 @@ export default function DepositPage() {
         `${API_URL}/api/deposits/request`,
         {
           amount: parseFloat(amount),
-          bank_id: parseInt(bankId),
+          bank_key: bankKey,
           slip_note: slipNote,
-          whatsapp: whatsapp || null,
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setSuccess("Deposit request submitted. Admin will review and credit your balance.");
       setAmount("");
       setSlipNote("");
-      setWhatsapp("");
       fetchMy();
     } catch (err: any) {
-      setError(err.response?.data?.detail || "Failed to submit deposit request");
+      const detail = err.response?.data?.detail;
+      setError(typeof detail === "string" ? detail : "Failed to submit deposit request");
     } finally {
       setLoading(false);
     }
   };
+
+  const selectedBank = banks.find((b) => b.key === bankKey);
 
   return (
     <div className="min-h-screen">
@@ -120,84 +139,77 @@ export default function DepositPage() {
         <div className="card p-6 space-y-5">
           <h2 className="text-lg font-semibold text-white">Request Deposit</h2>
           <p className="text-sm text-gray-400">
-            Transfer to one of the banks below, then submit the amount + slip note. Admin will approve and credit your balance. No auto WhatsApp.
+            Transfer to one of the banks below, then submit the amount + slip note. Admin will approve and credit your balance.
           </p>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1.5">Amount (USD)</label>
-              <input
-                type="number"
-                step="0.01"
-                min="1"
-                required
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="w-full bg-[#12151c] border border-[#2a2f3d] rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-blue-500"
-                placeholder="e.g. 10.00"
-              />
+          {banks.length === 0 ? (
+            <div className="bg-amber-500/10 border border-amber-500/30 text-amber-300 p-3.5 rounded-xl text-sm">
+              No banks configured yet. Ask admin to set bank details in Admin → Settings.
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1.5">Bank</label>
-              <select
-                value={bankId}
-                onChange={(e) => setBankId(e.target.value)}
-                className="w-full bg-[#12151c] border border-[#2a2f3d] rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-blue-500"
-                required
-              >
-                {banks.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name} — {b.account_title} ({b.account_number})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {banks.length > 0 && bankId && (
-              <div className="bg-[#12151c] rounded-xl p-4 border border-[#2a2f3d] text-sm space-y-1">
-                {(() => {
-                  const b = banks.find((x) => String(x.id) === bankId);
-                  if (!b) return null;
-                  return (
-                    <>
-                      <p className="text-gray-400">Account Title: <span className="text-white">{b.account_title}</span></p>
-                      <p className="text-gray-400">Account Number: <span className="text-white font-mono">{b.account_number}</span></p>
-                      {b.iban && <p className="text-gray-400">IBAN: <span className="text-white font-mono">{b.iban}</span></p>}
-                      {b.branch && <p className="text-gray-400">Branch: <span className="text-white">{b.branch}</span></p>}
-                    </>
-                  );
-                })()}
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1.5">Amount (USD)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="1"
+                  required
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  className="w-full bg-[#12151c] border border-[#2a2f3d] rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-blue-500"
+                  placeholder="e.g. 10.00"
+                />
               </div>
-            )}
 
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1.5">Slip / Transaction note</label>
-              <textarea
-                value={slipNote}
-                onChange={(e) => setSlipNote(e.target.value)}
-                rows={3}
-                className="w-full bg-[#12151c] border border-[#2a2f3d] rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-blue-500"
-                placeholder="Transaction ID / screenshot note / time of transfer"
-                required
-              />
-            </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1.5">Bank</label>
+                <select
+                  value={bankKey}
+                  onChange={(e) => setBankKey(e.target.value)}
+                  className="w-full bg-[#12151c] border border-[#2a2f3d] rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-blue-500"
+                  required
+                >
+                  {banks.map((b) => (
+                    <option key={b.key} value={b.key}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1.5">WhatsApp (optional, for admin to contact)</label>
-              <input
-                type="text"
-                value={whatsapp}
-                onChange={(e) => setWhatsapp(e.target.value)}
-                className="w-full bg-[#12151c] border border-[#2a2f3d] rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-blue-500"
-                placeholder="+92..."
-              />
-            </div>
+              {selectedBank && (
+                <div className="bg-[#12151c] rounded-xl p-4 border border-[#2a2f3d] text-sm space-y-1">
+                  <p className="text-gray-400">
+                    Bank: <span className="text-white">{selectedBank.name}</span>
+                  </p>
+                  {selectedBank.details ? (
+                    <pre className="text-white whitespace-pre-wrap font-mono text-xs mt-2 leading-relaxed">
+                      {selectedBank.details}
+                    </pre>
+                  ) : (
+                    <p className="text-amber-400 text-xs">Details not set — contact admin.</p>
+                  )}
+                </div>
+              )}
 
-            <button type="submit" disabled={loading} className="w-full btn-primary py-3">
-              {loading ? "Submitting..." : "Submit Deposit Request"}
-            </button>
-          </form>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1.5">Slip / Transaction note</label>
+                <textarea
+                  value={slipNote}
+                  onChange={(e) => setSlipNote(e.target.value)}
+                  rows={3}
+                  className="w-full bg-[#12151c] border border-[#2a2f3d] rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-blue-500"
+                  placeholder="Transaction ID / screenshot note / time of transfer"
+                  required
+                />
+              </div>
+
+              <button type="submit" disabled={loading || !bankKey} className="w-full btn-primary py-3">
+                {loading ? "Submitting..." : "Submit Deposit Request"}
+              </button>
+            </form>
+          )}
         </div>
 
         <div className="card p-6">
@@ -211,7 +223,9 @@ export default function DepositPage() {
                   <div className="flex justify-between items-start">
                     <div>
                       <p className="text-white font-medium">${Number(d.amount).toFixed(2)}</p>
-                      <p className="text-gray-400 text-xs mt-0.5">{d.bank_name || "Bank"} · {d.created_at}</p>
+                      <p className="text-gray-400 text-xs mt-0.5">
+                        {d.bank_name || "Bank"} · {d.created_at ? new Date(d.created_at).toLocaleString() : ""}
+                      </p>
                     </div>
                     <span
                       className={`badge text-xs ${

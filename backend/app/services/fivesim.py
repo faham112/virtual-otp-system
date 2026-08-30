@@ -5,6 +5,19 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Known plain-text error bodies 5sim returns with HTTP 200
+FIVESIM_TEXT_ERRORS = {
+    "no free phones": "No free phones available for this country/service right now. Try another country or wait a few minutes.",
+    "not enough user balance": "5sim provider wallet has insufficient balance. Top up the 5sim account.",
+    "not enough rating": "5sim account rating is too low. Wait or contact 5sim support.",
+    "select country": "Invalid country selected.",
+    "select operator": "Invalid operator selected.",
+    "bad country": "Invalid country code for 5sim.",
+    "bad operator": "Invalid operator for 5sim.",
+    "no product": "This service/product is not available on 5sim.",
+    "server offline": "5sim server is temporarily offline. Try again later.",
+}
+
 
 def _safe_json(response: httpx.Response) -> Dict[str, Any]:
     text = (response.text or "").strip()
@@ -12,10 +25,20 @@ def _safe_json(response: httpx.Response) -> Dict[str, Any]:
         raise Exception(
             f"5sim returned empty body (HTTP {response.status_code}). Check API key."
         )
+
+    # 5sim often returns plain-text errors with HTTP 200
+    lower = text.lower()
+    for key, friendly in FIVESIM_TEXT_ERRORS.items():
+        if key in lower:
+            raise Exception(friendly)
+
     try:
         return response.json()
     except Exception:
         snippet = text[:200].replace("\n", " ")
+        # If it looks like a known short error, surface it cleanly
+        if len(text) < 80 and text.isascii():
+            raise Exception(f"5sim: {text}")
         raise Exception(
             f"5sim non-JSON response (HTTP {response.status_code}): {snippet}"
         )
@@ -176,8 +199,13 @@ class FiveSimService:
         url = f"{self.BASE_URL}/user/buy/activation/{country}/{operator}/{product}"
         async with httpx.AsyncClient(timeout=45.0) as client:
             response = await client.get(url, headers=self.headers)
+            text = (response.text or "").strip()
             if response.status_code != 200:
-                body = (response.text or "")[:300]
+                lower = text.lower()
+                for key, friendly in FIVESIM_TEXT_ERRORS.items():
+                    if key in lower:
+                        raise Exception(friendly)
+                body = text[:300]
                 raise Exception(f"5sim Error ({response.status_code}): {body}")
             data = _safe_json(response)
             if not data.get("id"):
