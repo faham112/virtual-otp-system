@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import axios from "axios";
 import Cookies from "js-cookie";
 
@@ -10,16 +10,56 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 type Props = {
   title: string;
-  showBack?: boolean;
-  backHref?: string;
 };
 
-export default function AppHeader({ title, showBack = true, backHref = "/dashboard" }: Props) {
+const NAV = [
+  { href: "/dashboard", label: "Home", icon: HomeIcon },
+  { href: "/buy", label: "Buy", icon: BuyIcon },
+  { href: "/deposit", label: "Deposit", icon: DepositIcon },
+  { href: "/transactions", label: "History", icon: HistoryIcon },
+];
+
+function HomeIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 12l9-8 9 8M5 10v10h14V10" />
+    </svg>
+  );
+}
+function BuyIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+    </svg>
+  );
+}
+function DepositIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 8c-2.2 0-4 1.3-4 3s1.8 3 4 3 4 1.3 4 3-1.8 3-4 3m0-12V5m0 14v-2" />
+    </svg>
+  );
+}
+function HistoryIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 8v4l3 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  );
+}
+
+export default function AppHeader({ title }: Props) {
   const router = useRouter();
+  const pathname = usePathname();
   const [balance, setBalance] = useState<number | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [username, setUsername] = useState("");
   const [open, setOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    document.body.classList.add("otp-shell");
+    return () => document.body.classList.remove("otp-shell");
+  }, []);
 
   useEffect(() => {
     const token = Cookies.get("token");
@@ -29,16 +69,9 @@ export default function AppHeader({ title, showBack = true, backHref = "/dashboa
       .then((res) => {
         setBalance(typeof res.data?.balance === "number" ? res.data.balance : null);
         setIsAdmin(!!res.data?.is_admin);
+        setUsername(res.data?.username || "");
       })
       .catch(() => setBalance(null));
-  }, []);
-
-  useEffect(() => {
-    const onClick = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
   }, []);
 
   const logout = () => {
@@ -47,76 +80,133 @@ export default function AppHeader({ title, showBack = true, backHref = "/dashboa
     router.push("/login");
   };
 
+  const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
+
+  const NavLinks = ({ onPick }: { onPick?: () => void }) => (
+    <>
+      {NAV.map((item) => {
+        const Icon = item.icon;
+        const active = isActive(item.href);
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            onClick={onPick}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition ${
+              active ? "bg-blue-600/20 text-blue-300" : "text-gray-400 hover:text-white hover:bg-white/[0.04]"
+            }`}
+          >
+            <Icon className="w-5 h-5" />
+            {item.label}
+          </Link>
+        );
+      })}
+      {isAdmin && (
+        <Link
+          href="/admin"
+          onClick={onPick}
+          className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition ${
+            isActive("/admin") ? "bg-purple-600/20 text-purple-300" : "text-purple-300/80 hover:text-purple-200 hover:bg-white/[0.04]"
+          }`}
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 6V4m0 16v-2m8-6h2M2 12h2m13.7 6.7l1.4 1.4M4.9 4.9l1.4 1.4m11.4-1.4l1.4-1.4M4.9 19.1l1.4-1.4M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+          </svg>
+          Admin
+        </Link>
+      )}
+    </>
+  );
+
   return (
-    <header className="sticky top-0 z-30 bg-[#0f1117]/80 backdrop-blur-xl border-b border-[#2a2f3d]">
-      <div className="max-w-4xl mx-auto px-4 py-4 grid grid-cols-3 items-center">
-        <div className="justify-self-start">
-          {showBack ? (
-            <Link href={backHref} className="text-gray-400 hover:text-white text-sm flex items-center gap-1.5 transition">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-              Back
-            </Link>
-          ) : (
-            <span className="text-sm font-semibold text-white">Virtual OTP</span>
-          )}
+    <>
+      <aside className="hidden lg:flex fixed inset-y-0 left-0 z-40 w-64 flex-col border-r border-[#2a2f3d] bg-[#12151c]">
+        <div className="px-5 py-5 border-b border-[#2a2f3d]">
+          <p className="text-white font-semibold">Virtual OTP</p>
+          <p className="text-xs text-gray-500 mt-1 truncate">{username || "Account"}</p>
         </div>
+        <nav className="flex-1 p-3 space-y-1">
+          <NavLinks />
+        </nav>
+        <div className="p-3 border-t border-[#2a2f3d]">
+          <button type="button" onClick={logout} className="w-full text-left px-3 py-2.5 rounded-xl text-sm text-red-400 hover:bg-red-500/10">
+            Logout
+          </button>
+        </div>
+      </aside>
 
-        <h1 className="justify-self-center font-semibold text-white text-center truncate px-2">{title}</h1>
-
-        <div className="justify-self-end flex items-center gap-3" ref={menuRef}>
-          <div className="text-right">
+      <header className="sticky top-0 z-30 bg-[#0f1117]/90 backdrop-blur-xl border-b border-[#2a2f3d]">
+        <div className="px-4 py-3 grid grid-cols-3 items-center lg:pl-4">
+          <div className="justify-self-start">
+            <button
+              type="button"
+              aria-label="Menu"
+              onClick={() => setOpen(true)}
+              className="lg:hidden w-10 h-10 rounded-xl border border-[#2a2f3d] bg-[#12151c] text-gray-200 flex items-center justify-center"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            <span className="hidden lg:inline text-sm text-gray-400">Workspace</span>
+          </div>
+          <h1 className="justify-self-center font-semibold text-white text-center truncate px-2">{title}</h1>
+          <div className="justify-self-end text-right">
             <p className="text-[10px] leading-none text-gray-500 mb-0.5">Balance</p>
-            <p className="text-sm text-emerald-400 font-medium">
+            <p className="text-sm text-emerald-400 font-semibold">
               {balance !== null ? `$${balance.toFixed(2)}` : "..."}
             </p>
           </div>
-          <button
-            type="button"
-            aria-label="Menu"
-            onClick={() => setOpen((v) => !v)}
-            className="w-9 h-9 rounded-xl border border-[#2a2f3d] bg-[#12151c] text-gray-200 hover:text-white hover:border-[#3a4055] flex items-center justify-center"
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              {open ? (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              ) : (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              )}
-            </svg>
-          </button>
+        </div>
+      </header>
 
-          {open && (
-            <div className="absolute right-4 top-[3.6rem] w-52 rounded-2xl border border-[#2a2f3d] bg-[#12151c] shadow-xl overflow-hidden">
-              <Link href="/dashboard" onClick={() => setOpen(false)} className="block px-4 py-3 text-sm text-gray-200 hover:bg-white/[0.04]">
-                Dashboard
-              </Link>
-              <Link href="/buy" onClick={() => setOpen(false)} className="block px-4 py-3 text-sm text-gray-200 hover:bg-white/[0.04]">
-                Buy Number
-              </Link>
-              <Link href="/deposit" onClick={() => setOpen(false)} className="block px-4 py-3 text-sm text-gray-200 hover:bg-white/[0.04]">
-                Deposit
-              </Link>
-              <Link href="/transactions" onClick={() => setOpen(false)} className="block px-4 py-3 text-sm text-gray-200 hover:bg-white/[0.04]">
-                Transactions
-              </Link>
-              {isAdmin && (
-                <Link href="/admin" onClick={() => setOpen(false)} className="block px-4 py-3 text-sm text-purple-300 hover:bg-white/[0.04]">
-                  Admin Panel
-                </Link>
-              )}
-              <button
-                type="button"
-                onClick={logout}
-                className="w-full text-left px-4 py-3 text-sm text-red-400 hover:bg-red-500/10 border-t border-[#2a2f3d]"
-              >
+      {open && (
+        <div className="lg:hidden fixed inset-0 z-50">
+          <button type="button" className="absolute inset-0 bg-black/60" onClick={() => setOpen(false)} aria-label="Close menu" />
+          <div className="absolute inset-y-0 left-0 w-72 max-w-[85%] bg-[#12151c] border-r border-[#2a2f3d] flex flex-col">
+            <div className="px-5 py-5 border-b border-[#2a2f3d] flex items-center justify-between">
+              <div>
+                <p className="text-white font-semibold">Virtual OTP</p>
+                <p className="text-xs text-gray-500 mt-1">{username || "Account"}</p>
+              </div>
+              <button type="button" onClick={() => setOpen(false)} className="text-gray-400 hover:text-white">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <nav className="flex-1 p-3 space-y-1">
+              <NavLinks onPick={() => setOpen(false)} />
+            </nav>
+            <div className="p-3 border-t border-[#2a2f3d]">
+              <button type="button" onClick={logout} className="w-full text-left px-3 py-2.5 rounded-xl text-sm text-red-400 hover:bg-red-500/10">
                 Logout
               </button>
             </div>
-          )}
+          </div>
         </div>
-      </div>
-    </header>
+      )}
+
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 border-t border-[#2a2f3d] bg-[#12151c]/95 backdrop-blur-xl pb-[env(safe-area-inset-bottom)]">
+        <div className="grid grid-cols-4">
+          {NAV.map((item) => {
+            const Icon = item.icon;
+            const active = isActive(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex flex-col items-center justify-center gap-1 py-2.5 text-[11px] ${
+                  active ? "text-blue-300" : "text-gray-500"
+                }`}
+              >
+                <Icon className="w-5 h-5" />
+                {item.label}
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
+    </>
   );
 }

@@ -23,7 +23,6 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Smooth scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -39,7 +38,6 @@ body {
   background: #4b5563;
 }
 
-/* Custom utilities */
 @layer components {
   .card {
     @apply bg-[#1a1d27] border border-[#2a2f3d] rounded-2xl shadow-xl;
@@ -55,5 +53,15 @@ body {
   }
   .badge {
     @apply text-xs font-medium px-2.5 py-1 rounded-full;
+  }
+}
+
+body.otp-shell {
+  padding-bottom: 5.25rem;
+}
+@media (min-width: 1024px) {
+  body.otp-shell {
+    padding-left: 16rem;
+    padding-bottom: 0;
   }
 }
