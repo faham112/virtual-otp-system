@@ -137,7 +137,8 @@ def update_settings(
     db: Session = Depends(get_db),
 ):
     allowed = {
-        "fivesim_api_key", "markup_percent", "admin_whatsapp",
+        "fivesim_api_key", "markup_percent",
+        "admin_whatsapp", "admin_whatsapp_2",
         "bank_local_1_name", "bank_local_1_details",
         "bank_local_2_name", "bank_local_2_details",
         "bank_national_1_name", "bank_national_1_details",

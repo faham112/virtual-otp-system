@@ -41,7 +41,10 @@ def list_banks(
                 "details": details,
                 "type": "local" if "local" in key else "national",
             })
-    return {"banks": banks}
+    wa1 = get_setting(db, "admin_whatsapp", "") or ""
+    wa2 = get_setting(db, "admin_whatsapp_2", "") or ""
+    whatsapp_numbers = [n.strip() for n in (wa1, wa2) if n and n.strip()]
+    return {"banks": banks, "whatsapp_numbers": whatsapp_numbers}
 
 
 @router.post("/request")
@@ -50,7 +53,7 @@ def create_deposit(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """User submits deposit — no WhatsApp auto. Admin reviews in panel."""
+    """User submits deposit. Frontend opens WhatsApp to admin with prefilled proof message."""
     valid_keys = {k for k, _ in BANK_KEYS}
     if data.bank_key not in valid_keys:
         raise HTTPException(status_code=400, detail="Invalid bank selected")
@@ -73,10 +76,18 @@ def create_deposit(
     db.commit()
     db.refresh(dep)
 
+    wa1 = get_setting(db, "admin_whatsapp", "") or ""
+    wa2 = get_setting(db, "admin_whatsapp_2", "") or ""
+    whatsapp_numbers = [n.strip() for n in (wa1, wa2) if n and n.strip()]
+
     return {
         "message": "Deposit request submitted. Admin will review and credit your balance.",
         "deposit_id": dep.id,
         "status": dep.status,
+        "amount": dep.amount,
+        "bank_name": bank_name,
+        "username": current_user.username,
+        "whatsapp_numbers": whatsapp_numbers,
     }
 
 
