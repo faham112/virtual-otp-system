@@ -62,12 +62,8 @@ export default function BuyPage() {
 
   const selectedCountry = COUNTRIES.find((c) => c.value === country);
 
-  const visibleCountries = COUNTRIES.filter((c) => {
-    if (c.value === "any") return true;
-    const s = stockMap[c.value];
-    if (!s) return true;
-    return s.available && (s.stock > 0 || s.total_stock > 0 || s.user_price > 0);
-  });
+  // Always show every country so user can pick live market stock (not only cheapest)
+  const visibleCountries = COUNTRIES;
 
   const pickNextInStock = (exclude: string, map: Record<string, any>) => {
     const candidates = COUNTRIES.filter((c) => {
@@ -461,7 +457,7 @@ export default function BuyPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Country <span className="text-gray-500 font-normal">{stockLoading ? "(checking stock...)" : "(only in-stock shown)"}</span>
+                  Country <span className="text-gray-500 font-normal">{stockLoading ? "(checking stock...)" : "(live market prices)"}</span>
                 </label>
                 <div className="grid grid-cols-1 gap-1.5 max-h-56 overflow-y-auto pr-1">
                   {visibleCountries.map((c) => (
@@ -470,7 +466,11 @@ export default function BuyPage() {
                       <span className="text-xl">{c.flag}</span>
                       <span className="flex-1">{c.label}</span>
                       {c.value !== "any" && stockMap[c.value] && (
-                        <span className="text-xs text-gray-500">${stockMap[c.value].user_price?.toFixed(2) || "—"}</span>
+                        stockMap[c.value].available ? (
+                          <span className="text-xs text-emerald-400">${stockMap[c.value].user_price?.toFixed(2) || "—"}</span>
+                        ) : (
+                          <span className="text-xs text-gray-600">OOS</span>
+                        )
                       )}
                       {country === c.value && (
                         <svg className="w-4 h-4 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
@@ -517,7 +517,7 @@ export default function BuyPage() {
                 )}
               </button>
               <p className="text-xs text-center text-gray-500">
-                Full refund if OTP fails or times out. If cheapest is out of stock we auto-try next higher prices.
+                Saste na milne pe system next prices try karega. Aap khud bhi live stock wala country select kar sakte ho.
               </p>
             </>
           )}
