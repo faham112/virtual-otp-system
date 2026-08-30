@@ -29,10 +29,6 @@ async def get_price_quote(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    Live provider price + stock from 5sim, with FIXED system markup applied.
-    Admin sets markup once in Admin Panel → Settings.
-    """
     service = service.lower().strip()
     country = country.lower().strip()
 
@@ -76,9 +72,6 @@ async def get_country_stock(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    For a service, return stock + price for each allowed country (with markup).
-    """
     service = service.lower().strip()
     if service not in ALLOWED_SERVICES:
         raise HTTPException(status_code=400, detail=f"Invalid service: {service}")
@@ -107,6 +100,9 @@ async def get_country_stock(
             )
         )
 
-    # Sort: available first, then by price
-    results.sort(key=lambda x: (not x.available, x.user_price if x.user_price else 9999))
+    results.sort(key=lambda x: (
+        x.user_price if x.user_price > 0 else 9999.0,
+        0 if x.available else 1,
+        x.country,
+    ))
     return results

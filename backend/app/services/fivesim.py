@@ -26,7 +26,6 @@ def _safe_json(response: httpx.Response) -> Dict[str, Any]:
             f"5sim returned empty body (HTTP {response.status_code}). Check API key."
         )
 
-    # 5sim often returns plain-text errors with HTTP 200
     lower = text.lower()
     for key, friendly in FIVESIM_TEXT_ERRORS.items():
         if key in lower:
@@ -36,7 +35,6 @@ def _safe_json(response: httpx.Response) -> Dict[str, Any]:
         return response.json()
     except Exception:
         snippet = text[:200].replace("\n", " ")
-        # If it looks like a known short error, surface it cleanly
         if len(text) < 80 and text.isascii():
             raise Exception(f"5sim: {text}")
         raise Exception(
@@ -100,92 +98,92 @@ class FiveSimService:
         country: str,
         product: str,
     ) -> Dict[str, Any]:
-        best_cost = None
-        best_stock = 0
-        best_rate = 0.0
-        best_operator = None
+        listed_cost = None
+        live_cost = None
+        live_stock = 0
+        live_rate = 0.0
+        live_operator = None
         total_stock = 0
 
-        def scan_operators(ops: dict):
-            nonlocal best_cost, best_stock, best_rate, best_operator, total_stock
+        def is_op_info(val: Any) -> bool:
+            return isinstance(val, dict) and ("cost" in val or "count" in val)
+
+        def consider(op_name: str, info: Any) -> None:
+            nonlocal listed_cost, live_cost, live_stock, live_rate, live_operator, total_stock
+            if not is_op_info(info):
+                return
+            cost = float(info.get("cost") or 0)
+            count = int(info.get("count") or 0)
+            rate = float(info.get("rate") or 0)
+            total_stock += max(count, 0)
+            if cost > 0 and (listed_cost is None or cost < listed_cost):
+                listed_cost = cost
+            if count > 0 and cost > 0:
+                if live_cost is None or cost < live_cost:
+                    live_cost = cost
+                    live_stock = count
+                    live_rate = rate
+                    live_operator = op_name
+
+        def scan_operators(ops: Any) -> None:
             if not isinstance(ops, dict):
                 return
             for op_name, info in ops.items():
-                if not isinstance(info, dict):
-                    continue
-                cost = float(info.get("cost") or 0)
-                count = int(info.get("count") or 0)
-                rate = float(info.get("rate") or 0)
-                total_stock += count
-                if count <= 0 or cost <= 0:
-                    continue
-                if best_cost is None or cost < best_cost:
-                    best_cost = cost
-                    best_stock = count
-                    best_rate = rate
-                    best_operator = op_name
+                consider(str(op_name), info)
 
-        if country and country != "any" and product:
-            block = data.get(country) or data
-            if isinstance(block, dict):
-                ops = block.get(product) or block
-                if isinstance(ops, dict) and any(
-                    isinstance(v, dict) and ("cost" in v or "count" in v)
-                    for v in ops.values()
-                ):
-                    scan_operators(ops)
-                else:
-                    for ckey, cval in block.items():
-                        if isinstance(cval, dict) and product in cval:
-                            scan_operators(cval[product])
-                        elif ckey == product and isinstance(cval, dict):
-                            scan_operators(cval)
-        elif product and (not country or country == "any"):
-            root = data.get(product) or data
-            if isinstance(root, dict):
-                for ckey, cval in root.items():
-                    if isinstance(cval, dict):
-                        if any(
-                            isinstance(v, dict) and "cost" in v for v in cval.values()
-                        ):
-                            scan_operators(cval)
-                        else:
-                            for pkey, pval in cval.items():
-                                if pkey == product:
-                                    scan_operators(
-                                        pval if isinstance(pval, dict) else {}
-                                    )
-                                elif isinstance(pval, dict) and "cost" in next(
-                                    iter(pval.values()), {}
-                                ):
-                                    scan_operators(pval)
+        def scan_product_block(block: Any) -> None:
+            if not isinstance(block, dict):
+                return
+            if product and product in block and isinstance(block.get(product), dict):
+                inner = block[product]
+                if any(is_op_info(v) for v in inner.values()):
+                    scan_operators(inner)
+                    return
+            if any(is_op_info(v) for v in block.values()):
+                scan_operators(block)
+                return
+            for val in block.values():
+                if isinstance(val, dict) and product and product in val:
+                    scan_operators(val.get(product))
+
+        def match_key(mapping: Dict[str, Any], needle: str):
+            if needle in mapping:
+                return mapping.get(needle)
+            needle_l = needle.lower()
+            for key, val in mapping.items():
+                if str(key).lower() == needle_l:
+                    return val
+            return None
+
+        country = (country or "").lower().strip()
+        product = (product or "").lower().strip()
+        payload = data if isinstance(data, dict) else {}
+
+        if country and country != "any":
+            block = match_key(payload, country)
+            if block is None and product:
+                product_map = match_key(payload, product)
+                if isinstance(product_map, dict):
+                    block = match_key(product_map, country)
+            scan_product_block(block if block is not None else {})
         else:
-            for v1 in data.values() if isinstance(data, dict) else []:
-                if not isinstance(v1, dict):
-                    continue
-                for v2 in v1.values():
-                    if isinstance(v2, dict) and any(
-                        isinstance(x, dict) and "cost" in x for x in v2.values()
-                    ):
-                        scan_operators(v2)
+            product_map = match_key(payload, product) if product else None
+            if isinstance(product_map, dict) and not any(is_op_info(v) for v in product_map.values()):
+                for cval in product_map.values():
+                    scan_product_block(cval)
+            else:
+                for cval in payload.values():
+                    scan_product_block(cval)
 
-        if best_cost is None or total_stock <= 0:
-            return {
-                "available": False,
-                "provider_cost": 0.0,
-                "stock": 0,
-                "total_stock": int(total_stock),
-                "rate": 0.0,
-                "operator": None,
-            }
-
+        provider_cost = float(live_cost if live_cost is not None else (listed_cost or 0.0))
+        available = live_cost is not None and total_stock > 0
         return {
-            "available": True,
-            "provider_cost": float(best_cost),
-            "stock": int(best_stock),
+            "available": available,
+            "provider_cost": provider_cost,
+            "stock": int(live_stock),
             "total_stock": int(total_stock),
-            "rate": float(best_rate),
-            "operator": best_operator,
+            "rate": float(live_rate),
+            "operator": live_operator,
         }
 
     async def buy_number(
@@ -245,3 +243,6 @@ class FiveSimService:
                 return response.json()
             except Exception:
                 return {"status": "finished"}
+
+    async def request_next_sms(self, order_id: str):
+        return {"status": "waiting"}
