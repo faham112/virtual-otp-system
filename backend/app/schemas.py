@@ -2,7 +2,6 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 from typing import Optional, List
 from datetime import datetime
 
-# Allowed values (must match frontend + 5sim)
 ALLOWED_SERVICES = {
     "facebook", "whatsapp", "telegram", "google", "instagram",
     "twitter", "tiktok", "discord", "microsoft", "amazon",
@@ -10,13 +9,35 @@ ALLOWED_SERVICES = {
 }
 
 ALLOWED_COUNTRIES = {
-    "any", "england", "usa", "russia", "indonesia", "india",
-    "ukraine", "kazakhstan", "philippines", "vietnam",
-    "brazil", "nigeria", "pakistan", "bangladesh", "china",
-    "germany", "france", "netherlands", "poland", "spain"
+    "any", "afghanistan", "albania", "algeria", "angola", "antiguaandbarbuda",
+    "argentina", "armenia", "aruba", "australia", "austria", "azerbaijan",
+    "bahamas", "bahrain", "bangladesh", "barbados", "belgium", "belize",
+    "benin", "bhutane", "bih", "bolivia", "botswana", "brazil", "bulgaria",
+    "burkinafaso", "burundi", "cambodia", "cameroon", "canada", "capeverde",
+    "chad", "chile", "colombia", "comoros", "congo", "costarica", "croatia",
+    "cyprus", "czech", "denmark", "djibouti", "dominicana", "easttimor",
+    "ecuador", "egypt", "england", "equatorialguinea", "estonia", "ethiopia",
+    "finland", "france", "frenchguiana", "gabon", "gambia", "georgia",
+    "germany", "ghana", "greece", "guadeloupe", "guatemala", "guinea",
+    "guineabissau", "guyana", "haiti", "honduras", "hongkong", "hungary",
+    "india", "indonesia", "ireland", "israel", "italy", "ivorycoast",
+    "jamaica", "jordan", "kazakhstan", "kenya", "kuwait", "kyrgyzstan",
+    "laos", "latvia", "lesotho", "liberia", "lithuania", "luxembourg",
+    "macau", "madagascar", "malawi", "malaysia", "maldives", "mauritania",
+    "mauritius", "mexico", "moldova", "mongolia", "montenegro", "morocco",
+    "mozambique", "namibia", "nepal", "netherlands", "newcaledonia",
+    "nicaragua", "nigeria", "northmacedonia", "norway", "oman", "pakistan",
+    "panama", "papuanewguinea", "paraguay", "peru", "philippines", "poland",
+    "portugal", "puertorico", "reunion", "romania", "rwanda",
+    "saintkittsandnevis", "saintlucia", "saintvincentandgrenadines",
+    "salvador", "samoa", "saudiarabia", "senegal", "serbia", "seychelles",
+    "sierraleone", "slovakia", "slovenia", "solomonislands", "southafrica",
+    "spain", "srilanka", "suriname", "swaziland", "sweden", "taiwan",
+    "tajikistan", "tanzania", "thailand", "tit", "togo", "tunisia",
+    "turkmenistan", "uganda", "uruguay", "usa", "uzbekistan", "venezuela",
+    "vietnam", "zambia",
 }
 
-# ========== Auth Schemas ==========
 class UserCreate(BaseModel):
     username: str = Field(..., min_length=3, max_length=50)
     email: EmailStr
@@ -48,7 +69,6 @@ class UserOut(BaseModel):
     balance: float
     is_admin: bool
     is_active: bool
-
     class Config:
         from_attributes = True
 
@@ -58,7 +78,6 @@ class Token(BaseModel):
     is_admin: bool = False
     username: str = ""
 
-# ========== Order Schemas ==========
 class OrderCreate(BaseModel):
     service: str
     country: str = "any"
@@ -76,7 +95,7 @@ class OrderCreate(BaseModel):
     def validate_country(cls, v: str) -> str:
         v = v.lower().strip()
         if v not in ALLOWED_COUNTRIES:
-            raise ValueError(f"Invalid country. Allowed: {', '.join(sorted(ALLOWED_COUNTRIES))}")
+            raise ValueError(f"Invalid country: {v}")
         return v
 
 class OrderOut(BaseModel):
@@ -90,7 +109,6 @@ class OrderOut(BaseModel):
     sms_text: Optional[str]
     created_at: datetime
     expires_at: Optional[datetime]
-
     class Config:
         from_attributes = True
 
@@ -108,11 +126,9 @@ class AdminOrderOut(BaseModel):
     sms_text: Optional[str]
     created_at: datetime
     expires_at: Optional[datetime]
-
     class Config:
         from_attributes = True
 
-# ========== Catalog / Prices ==========
 class PriceQuote(BaseModel):
     service: str
     country: str
@@ -132,18 +148,15 @@ class CountryStock(BaseModel):
     provider_cost: float
     user_price: float
 
-# ========== Transaction ==========
 class TransactionOut(BaseModel):
     id: int
     amount: float
     type: str
     description: Optional[str]
     created_at: datetime
-
     class Config:
         from_attributes = True
 
-# ========== Admin ==========
 class AddBalance(BaseModel):
     user_id: int
     amount: float = Field(..., gt=0, le=100000)
