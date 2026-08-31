@@ -13,50 +13,74 @@ from app.settings_helper import make_fivesim
 
 router = APIRouter()
 
-OTP_RE = re.compile(r"\b(\d{4,8})\b")
+OTP_RE = re.compile(r"(?<!\d)(\d{4,8})(?!\d)")
+
+
+def _code_from_text(text: str) -> Optional[str]:
+    if not text:
+        return None
+    compact = re.sub(r"[\s\-]", "", text)
+    match = OTP_RE.search(text) or OTP_RE.search(compact)
+    return match.group(1) if match else None
 
 
 def extract_otp(data: dict) -> Tuple[Optional[str], Optional[str]]:
     if not isinstance(data, dict):
         return None, None
-    sms_list = data.get("sms") or []
+    texts = []
+    codes = []
+
+    def take(code, text):
+        if code:
+            digits = re.sub(r"\D", "", str(code))
+            if 4 <= len(digits) <= 8:
+                codes.append(digits)
+        if text:
+            texts.append(str(text))
+            found = _code_from_text(str(text))
+            if found:
+                codes.append(found)
+
+    sms_list = data.get("sms") or data.get("smses") or []
+    if isinstance(sms_list, str):
+        take(None, sms_list)
+        sms_list = []
     if isinstance(sms_list, dict):
         sms_list = [sms_list]
     for sms in sms_list:
+        if isinstance(sms, str):
+            take(None, sms)
+            continue
         if not isinstance(sms, dict):
             continue
-        text = str(sms.get("text") or sms.get("message") or "")
-        code = sms.get("code") or sms.get("otp")
-        if code:
-            return str(code), text or None
-        match = OTP_RE.search(text)
-        if match:
-            return match.group(1), text
-    if data.get("code"):
-        return str(data.get("code")), data.get("text")
-    text = str(data.get("text") or "")
-    match = OTP_RE.search(text)
-    if match:
-        return match.group(1), text
-    return None, None
+        take(
+            sms.get("code") or sms.get("otp") or sms.get("verification_code"),
+            sms.get("text") or sms.get("message") or sms.get("sms"),
+        )
+    take(
+        data.get("code") or data.get("otp"),
+        data.get("text") or data.get("lastSms") or data.get("last_sms"),
+    )
+    return (codes[0] if codes else None), (texts[0] if texts else None)
 
 
 async def apply_fivesim_status(order: Order, user: User, db: Session, data: dict, fivesim) -> bool:
     if order.status in ["completed", "failed", "cancelled"]:
         return False
-    status = str(data.get("status") or "").upper()
+    status = str(data.get("status") or "").upper().replace(" ", "_")
     code, text = extract_otp(data)
-    if code or status == "RECEIVED":
-        if code:
-            order.status = "completed"
-            order.otp_code = code
-            order.sms_text = text
-            try:
-                await fivesim.finish_order(order.fivesim_order_id)
-            except Exception:
-                pass
-            db.commit()
-            return True
+    if not code and text:
+        code = _code_from_text(text)
+    if code:
+        order.status = "completed"
+        order.otp_code = code
+        order.sms_text = text
+        try:
+            await fivesim.finish_order(order.fivesim_order_id)
+        except Exception:
+            pass
+        db.commit()
+        return True
     if status in ["CANCELED", "CANCELLED", "TIMEOUT", "BANNED"]:
         await refund_order(order, user, db, reason=status)
         return True
@@ -154,10 +178,34 @@ async def buy_number(
 
 
 @router.get("/", response_model=List[OrderOut])
-def get_my_orders(
+async def get_my_orders(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    pending = (
+        db.query(Order)
+        .filter(Order.user_id == current_user.id, Order.status == "pending")
+        .order_by(Order.created_at.desc())
+        .limit(8)
+        .all()
+    )
+    if pending:
+        try:
+            fivesim = make_fivesim(db)
+        except Exception:
+            fivesim = None
+        if fivesim:
+            for order in pending:
+                if not order.fivesim_order_id:
+                    continue
+                try:
+                    data = await fivesim.check_order(order.fivesim_order_id)
+                    await apply_fivesim_status(order, current_user, db, data, fivesim)
+                except Exception as e:
+                    print(f"[ORDER] list check {order.id}: {e}")
+                now = datetime.now(timezone.utc).replace(tzinfo=None)
+                if order.expires_at and now > order.expires_at and order.status == "pending":
+                    await refund_order(order, current_user, db, reason="TIMEOUT")
     return (
         db.query(Order)
         .filter(Order.user_id == current_user.id)
