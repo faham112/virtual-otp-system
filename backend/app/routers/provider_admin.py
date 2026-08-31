@@ -59,6 +59,49 @@ def activate_provider(data: dict, admin: User = Depends(get_current_admin), db: 
     return {"message": f"Active API set to {name}", "active": name}
 
 
+PROVIDER_KEY_MAP = {
+    "fivesim": "fivesim_api_key",
+    "herosms": "herosms_api_key",
+    "smsman": "smsman_api_key",
+    "grizzly": "grizzly_api_key",
+    "smspool": "smspool_api_key",
+    "textverified": "textverified_api_key",
+}
+
+
+def _mask(value: str) -> str:
+    raw = (value or "").strip()
+    if not raw:
+        return ""
+    if len(raw) <= 6:
+        return "••••" + raw[-2:]
+    return "••••••••" + raw[-4:]
+
+
+@router.get("/providers/keys")
+def list_provider_keys(admin: User = Depends(get_current_admin), db: Session = Depends(get_db)):
+    keys = {}
+    for pid, setting_key in PROVIDER_KEY_MAP.items():
+        val = get_setting(db, setting_key, "").strip()
+        if pid == "fivesim" and not val:
+            val = get_fivesim_api_key(db)
+        keys[pid] = _mask(val)
+    return {"keys": keys}
+
+
+@router.post("/providers/keys")
+def save_provider_key(data: dict, admin: User = Depends(get_current_admin), db: Session = Depends(get_db)):
+    pid = str((data or {}).get("provider") or "").strip().lower()
+    key = str((data or {}).get("api_key") or "").strip()
+    setting_key = PROVIDER_KEY_MAP.get(pid)
+    if not setting_key:
+        raise HTTPException(status_code=400, detail="Unknown provider")
+    if not key or key.startswith("••••"):
+        raise HTTPException(status_code=400, detail="api_key required")
+    set_setting(db, setting_key, key)
+    return {"message": f"{pid} API key saved", "provider": pid}
+
+
 @router.post("/providers/herosms-key")
 def save_hero_key(data: dict, admin: User = Depends(get_current_admin), db: Session = Depends(get_db)):
     key = str((data or {}).get("api_key") or "").strip()
