@@ -66,3 +66,46 @@ def save_hero_key(data: dict, admin: User = Depends(get_current_admin), db: Sess
         raise HTTPException(status_code=400, detail="api_key required")
     set_setting(db, "herosms_api_key", key)
     return {"message": "HeroSMS API key saved"}
+
+
+@router.post("/adjust-balance")
+def adjust_balance(data: dict, admin: User = Depends(get_current_admin), db: Session = Depends(get_db)):
+    from app.models import Transaction
+    user_id = int((data or {}).get("user_id") or 0)
+    amount = float((data or {}).get("amount") or 0)
+    desc = str((data or {}).get("description") or "Admin adjustment").strip() or "Admin adjustment"
+    if user_id <= 0:
+        raise HTTPException(status_code=400, detail="user_id required")
+    if amount == 0 or abs(amount) > 100000:
+        raise HTTPException(status_code=400, detail="Invalid amount")
+    user = db.query(User).filter(User.id == user_id).with_for_update().first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    new_bal = round(user.balance + amount, 4)
+    if new_bal < 0:
+        raise HTTPException(status_code=400, detail="Balance cannot go below 0")
+    user.balance = new_bal
+    db.add(Transaction(
+        user_id=user.id,
+        amount=amount,
+        type="credit" if amount > 0 else "debit",
+        description=f"{desc} ({admin.username})",
+    ))
+    db.commit()
+    return {"message": f"Balance updated for {user.username}", "new_balance": user.balance}
+
+
+@router.post("/orders/{order_id}/refund")
+async def admin_refund_order(order_id: int, admin: User = Depends(get_current_admin), db: Session = Depends(get_db)):
+    from app.models import Order
+    from app.routers.orders import refund_order
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order.status != "pending":
+        raise HTTPException(status_code=400, detail="Only pending orders can be refunded")
+    user = db.query(User).filter(User.id == order.user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    await refund_order(order, user, db, reason="admin-refund")
+    return {"message": f"Order #{order.id} refunded"}
