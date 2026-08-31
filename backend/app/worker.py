@@ -2,7 +2,7 @@ import asyncio
 from datetime import datetime, timezone
 from app.database import SessionLocal
 from app.models import Order, User
-from app.settings_helper import make_fivesim
+from app.services.providers import make_provider_for_order_id
 
 
 async def _sync_one(db, order: Order):
@@ -12,7 +12,7 @@ async def _sync_one(db, order: Order):
     if not pid:
         return
     try:
-        fivesim = make_fivesim(db)
+        fivesim = make_provider_for_order_id(db, pid)
         data = await fivesim.check_order(pid)
         user = db.query(User).filter(User.id == order.user_id).first()
         if not user:
