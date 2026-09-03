@@ -3,7 +3,7 @@ from app.settings_helper import get_setting, get_fivesim_api_key
 
 
 def get_active_provider_name(db: Session) -> str:
-    name = (get_setting(db, "active_provider", "fivesim") or "fivesim").strip().lower()
+    name = (get_setting(db, "active_provider", "herosms") or "herosms").strip().lower()
     if name in ("herosms", "hero", "hero-sms"):
         return "herosms"
     return "fivesim"
