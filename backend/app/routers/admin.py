@@ -67,14 +67,18 @@ def set_markup(
     admin: User = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
-    setting = db.query(Setting).filter(Setting.key == "markup_percent").first()
+    usd = float(getattr(data, "markup_usd", None) or 0.035)
+    pct = getattr(data, "markup_percent", None)
+    if pct is not None and float(pct) <= 2:
+        usd = float(pct)
+    setting = db.query(Setting).filter(Setting.key == "markup_usd").first()
     if setting:
-        setting.value = str(data.markup_percent)
+        setting.value = str(usd)
     else:
-        setting = Setting(key="markup_percent", value=str(data.markup_percent))
+        setting = Setting(key="markup_usd", value=str(usd))
         db.add(setting)
     db.commit()
-    return {"message": f"Markup set to {data.markup_percent}%", "markup_percent": data.markup_percent}
+    return {"message": f"Markup set to ${usd:.4f} per number", "markup_usd": usd}
 
 @router.get("/orders", response_model=List[AdminOrderOut])
 def all_orders(
@@ -137,7 +141,7 @@ def update_settings(
     db: Session = Depends(get_db),
 ):
     allowed = {
-        "fivesim_api_key", "markup_percent",
+        "fivesim_api_key", "markup_percent", "markup_usd",
         "admin_whatsapp", "admin_whatsapp_2",
         "bank_local_1_name", "bank_local_1_details",
         "bank_local_2_name", "bank_local_2_details",
