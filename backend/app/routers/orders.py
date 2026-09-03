@@ -10,6 +10,12 @@ from app.schemas import OrderCreate, OrderOut
 from app.auth import get_current_user
 from app.services.fivesim import FiveSimService
 from app.settings_helper import make_fivesim
+from app.services.providers import (
+    make_active_provider,
+    make_provider_for_order_id,
+    store_provider_order_id,
+    get_active_provider_name,
+)
 
 router = APIRouter()
 
@@ -115,7 +121,7 @@ async def buy_number(
 
     markup = get_markup_percent(db)
     try:
-        fivesim = make_fivesim(db)
+        fivesim = make_active_provider(db)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -153,7 +159,7 @@ async def buy_number(
 
     new_order = Order(
         user_id=user.id,
-        fivesim_order_id=str(result["id"]),
+        fivesim_order_id=store_provider_order_id(get_active_provider_name(db), result["id"]),
         phone_number=result.get("phone"),
         service=order_data.service,
         country=resolved_country,
@@ -190,22 +196,18 @@ async def get_my_orders(
         .all()
     )
     if pending:
-        try:
-            fivesim = make_fivesim(db)
-        except Exception:
-            fivesim = None
-        if fivesim:
-            for order in pending:
-                if not order.fivesim_order_id:
-                    continue
-                try:
-                    data = await fivesim.check_order(order.fivesim_order_id)
-                    await apply_fivesim_status(order, current_user, db, data, fivesim)
-                except Exception as e:
-                    print(f"[ORDER] list check {order.id}: {e}")
-                now = datetime.now(timezone.utc).replace(tzinfo=None)
-                if order.expires_at and now > order.expires_at and order.status == "pending":
-                    await refund_order(order, current_user, db, reason="TIMEOUT")
+        for order in pending:
+            if not order.fivesim_order_id:
+                continue
+            try:
+                fivesim = make_provider_for_order_id(db, order.fivesim_order_id)
+                data = await fivesim.check_order(order.fivesim_order_id)
+                await apply_fivesim_status(order, current_user, db, data, fivesim)
+            except Exception as e:
+                print(f"[ORDER] list check {order.id}: {e}")
+            now = datetime.now(timezone.utc).replace(tzinfo=None)
+            if order.expires_at and now > order.expires_at and order.status == "pending":
+                await refund_order(order, current_user, db, reason="TIMEOUT")
     return (
         db.query(Order)
         .filter(Order.user_id == current_user.id)
@@ -233,7 +235,7 @@ async def get_order_status(
         return order
 
     if order.fivesim_order_id:
-        fivesim = make_fivesim(db)
+        fivesim = make_provider_for_order_id(db, order.fivesim_order_id)
         try:
             data = await fivesim.check_order(order.fivesim_order_id)
             await apply_fivesim_status(order, current_user, db, data, fivesim)
@@ -269,7 +271,7 @@ async def refund_order(order: Order, user: User, db: Session, reason: str = "fai
 
     if order.fivesim_order_id:
         try:
-            fivesim = make_fivesim(db)
+            fivesim = make_provider_for_order_id(db, order.fivesim_order_id)
             await fivesim.cancel_order(order.fivesim_order_id)
         except Exception:
             pass
