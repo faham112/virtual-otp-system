@@ -163,7 +163,8 @@ class AddBalance(BaseModel):
     description: str = "Admin credit"
 
 class MarkupUpdate(BaseModel):
-    markup_percent: float = Field(..., ge=0, le=500)
+    markup_usd: float = Field(0.035, ge=0, le=100)
+    markup_percent: Optional[float] = Field(None, ge=0, le=500)
 
 class ToggleUser(BaseModel):
     user_id: int
