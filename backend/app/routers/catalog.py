@@ -8,18 +8,9 @@ from app.schemas import ALLOWED_SERVICES, ALLOWED_COUNTRIES, PriceQuote, Country
 from app.auth import get_current_user
 from app.models import User
 from app.services.providers import make_active_provider
+from app.pricing import get_markup_usd, sell_price
 
 router = APIRouter()
-
-
-def get_markup_percent(db: Session) -> float:
-    setting = db.query(Setting).filter(Setting.key == "markup_percent").first()
-    if setting:
-        try:
-            return float(setting.value)
-        except (ValueError, TypeError):
-            return 50.0
-    return 50.0
 
 
 @router.get("/price", response_model=PriceQuote)
@@ -37,7 +28,7 @@ async def get_price_quote(
     if country not in ALLOWED_COUNTRIES:
         raise HTTPException(status_code=400, detail=f"Invalid country: {country}")
 
-    markup = get_markup_percent(db)
+    markup = get_markup_usd(db)
 
     try:
         fivesim = make_active_provider(db)
@@ -50,7 +41,7 @@ async def get_price_quote(
         raise HTTPException(status_code=502, detail=f"Failed to fetch prices: {str(e)}")
 
     provider_cost = float(parsed.get("provider_cost") or 0)
-    user_price = round(provider_cost * (1 + markup / 100), 4) if provider_cost > 0 else 0.0
+    user_price = sell_price(provider_cost, markup)
 
     return PriceQuote(
         service=service,
@@ -76,7 +67,7 @@ async def get_country_stock(
     if service not in ALLOWED_SERVICES:
         raise HTTPException(status_code=400, detail=f"Invalid service: {service}")
 
-    markup = get_markup_percent(db)
+    markup = get_markup_usd(db)
     countries = [c for c in ALLOWED_COUNTRIES if c != "any"]
     results: List[CountryStock] = []
 
@@ -89,7 +80,7 @@ async def get_country_stock(
     for c in countries:
         parsed = fivesim.parse_best_price(raw, c, service)
         provider_cost = float(parsed.get("provider_cost") or 0)
-        user_price = round(provider_cost * (1 + markup / 100), 4) if provider_cost > 0 else 0.0
+        user_price = sell_price(provider_cost, markup)
         results.append(
             CountryStock(
                 country=c,
