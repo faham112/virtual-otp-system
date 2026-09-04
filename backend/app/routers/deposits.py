@@ -7,6 +7,7 @@ from app.database import get_db
 from app.models import User, DepositRequest
 from app.auth import get_current_user
 from app.settings_helper import get_setting
+from app.proof import proof_token, proof_path, slip_path, save_slip
 
 router = APIRouter()
 
@@ -53,40 +54,60 @@ def create_deposit(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """User submits deposit. Frontend opens WhatsApp to admin with prefilled proof message."""
     valid_keys = {k for k, _ in BANK_KEYS}
     if data.bank_key not in valid_keys:
         raise HTTPException(status_code=400, detail="Invalid bank selected")
+    if not data.slip_image:
+        raise HTTPException(status_code=400, detail="Upload the payment receipt first")
 
     bank_name = get_setting(db, f"{data.bank_key}_name", data.bank_key)
-    slip_image = data.slip_image
-    if slip_image and len(slip_image) > 2_000_000:
-        raise HTTPException(status_code=400, detail="Slip image too large (max ~1.5MB)")
-
     dep = DepositRequest(
         user_id=current_user.id,
         amount=round(data.amount, 2),
         bank_key=data.bank_key,
         bank_name=bank_name,
         slip_note=(data.slip_note or "")[:500],
-        slip_image=slip_image,
+        slip_image=None,
         status="pending",
     )
     db.add(dep)
     db.commit()
     db.refresh(dep)
 
+    try:
+        dep.slip_image = save_slip(dep.id, data.slip_image)
+        db.commit()
+    except Exception as e:
+        db.delete(dep)
+        db.commit()
+        raise HTTPException(status_code=400, detail=str(e))
+
+    token = proof_token(dep.id)
+    url = proof_path(dep.id, token)
     wa1 = get_setting(db, "admin_whatsapp", "") or ""
     wa2 = get_setting(db, "admin_whatsapp_2", "") or ""
     whatsapp_numbers = [n.strip() for n in (wa1, wa2) if n and n.strip()]
-
+    message = (
+        f"Assalam o Alaikum Admin,\n\n"
+        f"USD deposit request ready hai.\n\n"
+        f"User: {current_user.username}\n"
+        f"Amount: ${dep.amount:.2f} USD\n"
+        f"Bank: {bank_name}\n"
+        f"Note: {(data.slip_note or '-')}\n"
+        f"Request: #{dep.id}\n\n"
+        f"Receipt card (image preview):\n{url}\n\n"
+        f"Is link pe receipt attached hai. Verify karke approve kar dein."
+    )
     return {
-        "message": "Deposit request submitted. Admin will review and credit your balance.",
+        "message": "Deposit request submitted",
         "deposit_id": dep.id,
         "status": dep.status,
         "amount": dep.amount,
         "bank_name": bank_name,
         "username": current_user.username,
+        "proof_url": url,
+        "slip_url": slip_path(dep.id, token),
+        "whatsapp_message": message,
         "whatsapp_numbers": whatsapp_numbers,
     }
 
@@ -103,16 +124,18 @@ def my_deposits(
         .limit(50)
         .all()
     )
-    return [
-        {
+    out = []
+    for d in rows:
+        token = proof_token(d.id)
+        out.append({
             "id": d.id,
             "amount": d.amount,
             "bank_name": d.bank_name,
             "slip_note": d.slip_note,
             "status": d.status,
             "admin_note": d.admin_note,
+            "proof_url": proof_path(d.id, token),
             "created_at": d.created_at.isoformat() if d.created_at else None,
             "processed_at": d.processed_at.isoformat() if d.processed_at else None,
-        }
-        for d in rows
-    ]
+        })
+    return out
