@@ -19,10 +19,10 @@ type Stats = {
 };
 
 const STEPS = [
-  { n: "1", t: "Create account", d: "Register with username, email and a strong password. Then sign in." },
-  { n: "2", t: "Add wallet balance", d: "Open Deposit, pick a bank, send the amount and upload the slip note. Admin approves, balance appears in green." },
-  { n: "3", t: "Pick service + country", d: "Buy page pe Facebook / WhatsApp etc choose karo. Cheaper, Balanced ya Better quality filter lagaao." },
-  { n: "4", t: "Receive OTP", d: "Number copy karo, app mein lagao. OTP yahan auto aata hai. No SMS? Cancel & refund." },
+  { n: "1", t: "Create account", d: "Register with a username, email and a strong password, then sign in." },
+  { n: "2", t: "Add wallet balance", d: "Open Deposit, choose a bank, send PKR and upload the receipt. After admin approval, USDT appears in your wallet." },
+  { n: "3", t: "Pick service and country", d: "On the Buy page choose Facebook, WhatsApp or another service. Use Cheaper, Balanced or Better quality." },
+  { n: "4", t: "Receive OTP", d: "Copy the number into the app. The code appears here automatically. If no SMS arrives, tap Cancel & refund." },
 ];
 
 export default function Home() {
@@ -64,8 +64,8 @@ export default function Home() {
             Temporary numbers for Facebook, WhatsApp and more
           </h1>
           <p className="mt-4 text-gray-400 max-w-2xl text-sm sm:text-base leading-relaxed">
-            Wallet se number khareedo, OTP isi dashboard pe receive karo. Cheap filter sasta number deta hai.
-            Better quality mehnga number leti hai — Facebook ke liye wahi use karo.
+            Buy a number from your wallet and receive the OTP on this dashboard.
+            Cheaper picks the lowest price. Better quality costs more and usually delivers more reliably — use it for Facebook.
           </p>
           <div className="mt-6 flex flex-col sm:flex-row gap-3">
             <Link href="/register" className="btn-primary text-center py-3 px-6">Create free account</Link>
@@ -80,7 +80,7 @@ export default function Home() {
             <Stat label="Countries" value={stats?.countries} />
             <Stat label="Services" value={stats?.services} />
           </div>
-          <p className="text-[11px] text-gray-500 mt-2">Live counters refresh every 20 seconds. No phone numbers are shown publicly.</p>
+          <p className="text-[11px] text-gray-500 mt-2">Live counters refresh every 20 seconds. Phone numbers are never shown publicly.</p>
         </section>
 
         <section className="max-w-5xl mx-auto px-4 pb-10 grid md:grid-cols-2 gap-4">
@@ -120,9 +120,9 @@ export default function Home() {
             <h2 className="text-white font-semibold mb-3">Read this before buying</h2>
             <ul className="text-sm text-gray-400 space-y-2 leading-relaxed">
               <li>Numbers are virtual and meant for one verification. Do not use them as a long-term SIM.</li>
-              <li>Cheaper numbers fail more on Facebook. Use Better quality if the OTP must arrive.</li>
-              <li>If no SMS comes, tap Cancel & Refund. Balance returns to the wallet.</li>
-              <li>Deposit is manual. Send the exact amount and wait for admin approval.</li>
+              <li>Cheaper numbers fail more often on Facebook. Use Better quality when the code must arrive.</li>
+              <li>If no SMS arrives, tap Cancel & Refund. The balance returns to your wallet.</li>
+              <li>Deposits are manual. Send the amount and wait for admin approval.</li>
               <li>Keep your password private. Admins will never ask for it.</li>
             </ul>
           </div>
