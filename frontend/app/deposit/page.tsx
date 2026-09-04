@@ -94,18 +94,18 @@ export default function DepositPage() {
 
   const onFile = async (file?: File) => {
     if (!file) return;
-    if (!file.type.startsWith("image/")) { setError("Sirf receipt image select karein"); return; }
+    if (!file.type.startsWith("image/")) { setError("Please select a receipt image"); return; }
     try {
       const data = await fileToJpeg(file);
       setSlipData(data); setSlipPreview(data); setError("");
-    } catch { setError("Receipt read nahi hui"); }
+    } catch { setError("Could not read that image. Try another photo."); }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(""); setSuccess("");
-    if (!slipData) { setError("Pehle receipt photo select karein"); return; }
-    if (pkrNum <= 0) { setError("PKR amount likho"); return; }
+    if (!slipData) { setError("Select a receipt photo first"); return; }
+    if (pkrNum <= 0) { setError("Enter the PKR amount you sent"); return; }
     setLoading(true);
     try {
       const res = await axios.post(`${API_URL}/api/deposits/request`, {
@@ -116,13 +116,13 @@ export default function DepositPage() {
       const msg = data.whatsapp_message || url;
       const numbers: string[] = data.whatsapp_numbers?.length ? data.whatsapp_numbers : whatsappNumbers;
       setProofUrl(url);
-      setSuccess("Request save ho gayi. WhatsApp pe card ja raha hai.");
+      setSuccess("Request saved. Opening WhatsApp with the receipt card.");
       setPkr(""); setSlipData(""); setSlipPreview(""); fetchMy();
       if (numbers[0]) openWhatsApp(numbers[0], msg);
       if (numbers[1]) setTimeout(() => openWhatsApp(numbers[1], msg), 700);
     } catch (err: any) {
       const detail = err.response?.data?.detail;
-      setError(typeof detail === "string" ? detail : "Deposit fail");
+      setError(typeof detail === "string" ? detail : "Deposit request failed");
     } finally { setLoading(false); }
   };
 
@@ -137,10 +137,10 @@ export default function DepositPage() {
         {proofUrl && <div className="card p-4 text-sm"><a href={proofUrl} target="_blank" className="text-blue-400 break-all">{proofUrl}</a></div>}
 
         <div className="card p-6 space-y-5">
-          <h2 className="text-lg font-semibold text-white">PKR Deposit</h2>
-          <p className="text-sm text-gray-400">Bank mein PKR bhejo. Neeche live rate se USDT nikal ke wallet mein request hoti hai.</p>
+          <h2 className="text-lg font-semibold text-white">PKR deposit</h2>
+          <p className="text-sm text-gray-400">Send PKR to the bank below. Live rate converts it to USDT for your wallet request.</p>
           {banks.length === 0 ? (
-            <p className="text-amber-300 text-sm">Bank details admin ne set nahi kiye.</p>
+            <p className="text-amber-300 text-sm">No bank details yet. Ask the admin to add them in Settings.</p>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -150,7 +150,7 @@ export default function DepositPage() {
               <div className="bg-[#12151c] rounded-xl p-4 border border-[#2a2f3d]">
                 <p className="text-xs text-gray-500">Live rate</p>
                 <p className="text-white text-sm mt-1">{rate ? `1 USDT = ${rate.toFixed(2)} PKR` : "Loading rate..."}</p>
-                <p className="text-emerald-400 text-xl font-bold mt-2">{usd > 0 ? `You get ${usd.toFixed(4)} USDT` : "PKR likho"}</p>
+                <p className="text-emerald-400 text-xl font-bold mt-2">{usd > 0 ? `You get ${usd.toFixed(4)} USDT` : "Enter PKR amount"}</p>
               </div>
               <div>
                 <label className="block text-sm text-gray-300 mb-1.5">Bank</label>
@@ -164,13 +164,14 @@ export default function DepositPage() {
                 <input type="file" accept="image/*" onChange={(e) => onFile(e.target.files?.[0])} className="block w-full text-sm text-gray-400" />
                 {slipPreview && <img src={slipPreview} alt="Receipt" className="mt-3 w-full rounded-xl border border-[#2a2f3d]" />}
               </div>
-              <button type="submit" disabled={loading || !bankKey || !slipData || usd <= 0} className="w-full btn-primary py-3">{loading ? "Submitting..." : "Submit receipt + WhatsApp"}</button>
+              <button type="submit" disabled={loading || !bankKey || !slipData || usd <= 0} className="w-full btn-primary py-3">{loading ? "Submitting..." : "Submit receipt and WhatsApp"}</button>
             </form>
           )}
         </div>
 
         <div className="card p-6">
-          <h2 className="text-lg font-semibold text-white mb-4">Meray requests</h2>
+          <h2 className="text-lg font-semibold text-white mb-4">My requests</h2>
+          {myDeposits.length === 0 && <p className="text-sm text-gray-500">No deposit requests yet.</p>}
           {myDeposits.map((d) => (
             <div key={d.id} className="bg-[#12151c] rounded-xl p-4 border border-[#2a2f3d] text-sm mb-3">
               <div className="flex justify-between">
