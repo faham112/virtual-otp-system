@@ -2,8 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-:root,
-html.theme-dark {
+:root {
   --bg: #0f1117;
   --card: #1a1d27;
   --border: #2a2f3d;
@@ -15,7 +14,6 @@ html.theme-dark {
   --text: #e5e7eb;
   --muted: #9ca3af;
   --header: #0f1117;
-  --aside: #12151c;
 }
 
 html.theme-light {
@@ -30,16 +28,16 @@ html.theme-light {
   --text: #111827;
   --muted: #4b5563;
   --header: #ffffff;
-  --aside: #ffffff;
 }
 
-html, body {
+html,
+body {
   max-width: 100%;
-  overflow-x-hidden;
+  overflow-x: hidden;
 }
 
 body {
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
@@ -50,9 +48,11 @@ body {
   width: 8px;
   height: 8px;
 }
+
 ::-webkit-scrollbar-track {
-  background: color-mix(in srgb, var(--bg) 80%, #000);
+  background: #151820;
 }
+
 ::-webkit-scrollbar-thumb {
   background: #3a4055;
   border-radius: 4px;
@@ -64,22 +64,27 @@ body {
     background: var(--card);
     border-color: var(--border);
   }
+
   .btn-primary {
     @apply bg-blue-600 hover:bg-blue-500 text-white font-medium py-2.5 px-5 rounded-xl transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed;
   }
+
   .btn-ghost {
     @apply px-3 py-2 rounded-lg transition;
     color: var(--muted);
   }
+
   .input-field {
     @apply w-full rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition border;
     background: var(--bg);
     border-color: var(--border);
     color: var(--text);
   }
+
   .badge {
     @apply text-xs font-medium px-2.5 py-1 rounded-full;
   }
+
   .theme-toggle {
     border-color: var(--border);
     color: var(--text);
@@ -90,6 +95,7 @@ body {
 body.otp-shell {
   padding-bottom: 6.25rem;
 }
+
 @media (min-width: 1024px) {
   body.otp-shell {
     padding-left: 16rem;
@@ -105,11 +111,13 @@ body.admin-shell {
   padding-bottom: 0;
   background: var(--bg);
 }
+
 @media (min-width: 1024px) {
   body.admin-shell {
     padding-left: 15rem;
   }
 }
+
 body.admin-shell header.z-20 {
   display: none !important;
 }
@@ -119,35 +127,21 @@ html.theme-light .text-gray-100,
 html.theme-light .text-slate-100 {
   color: #111827 !important;
 }
+
 html.theme-light .text-gray-400,
 html.theme-light .text-gray-500,
 html.theme-light .text-slate-400,
 html.theme-light .text-slate-500 {
   color: #4b5563 !important;
 }
-html.theme-light .bg-\[\#0f1117\],
-html.theme-light .bg-\[\#0f1117\]\/90,
-html.theme-light .bg-\[\#0b0c12\],
-html.theme-light .bg-\[\#0b0c12\]\/95,
-html.theme-light .bg-\[\#12151c\],
-html.theme-light .bg-\[\#12151c\]\/95,
-html.theme-light .bg-\[\#1a1d27\],
-html.theme-light .bg-\[\#08090d\] {
-  background-color: var(--header) !important;
-}
-html.theme-light .border-\[\#2a2f3d\],
-html.theme-light .border-violet-500\/20,
-html.theme-light .border-violet-500\/30,
-html.theme-light .border-white\/10,
-html.theme-light .border-white\/5 {
-  border-color: var(--border) !important;
-}
+
 html.theme-light header,
 html.theme-light aside,
 html.theme-light nav.fixed {
   background: #ffffff !important;
   color: #111827;
 }
+
 html.theme-light body.admin-shell {
   background: #f3f5f9;
 }
