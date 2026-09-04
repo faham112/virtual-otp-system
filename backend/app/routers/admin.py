@@ -126,10 +126,18 @@ async def fivesim_balance(
     admin: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
+    return await provider_balance(admin, db)
+
+@router.get("/provider-balance")
+async def provider_balance(
+    admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
     try:
-        fivesim = make_fivesim(db)
-        bal = await fivesim.get_balance()
-        return {"balance": bal}
+        from app.services.providers import make_active_provider, get_active_provider_name
+        svc = make_active_provider(db)
+        bal = await svc.get_balance()
+        return {"balance": bal, "provider": get_active_provider_name(db)}
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e))
 
@@ -141,7 +149,7 @@ def update_settings(
     db: Session = Depends(get_db),
 ):
     allowed = {
-        "fivesim_api_key", "markup_percent", "markup_usd",
+        "fivesim_api_key", "herosms_api_key", "active_provider", "markup_percent", "markup_usd",
         "admin_whatsapp", "admin_whatsapp_2",
         "bank_local_1_name", "bank_local_1_details",
         "bank_local_2_name", "bank_local_2_details",
