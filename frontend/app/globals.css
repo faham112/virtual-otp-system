@@ -2,7 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
+:root,
+html.theme-dark {
   --bg: #0f1117;
   --card: #1a1d27;
   --border: #2a2f3d;
@@ -13,11 +14,28 @@
   --danger: #ef4444;
   --text: #e5e7eb;
   --muted: #9ca3af;
+  --header: #0f1117;
+  --aside: #12151c;
+}
+
+html.theme-light {
+  --bg: #f3f5f9;
+  --card: #ffffff;
+  --border: #dbe1ea;
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --success: #059669;
+  --warning: #d97706;
+  --danger: #dc2626;
+  --text: #111827;
+  --muted: #4b5563;
+  --header: #ffffff;
+  --aside: #ffffff;
 }
 
 html, body {
   max-width: 100%;
-  overflow-x: hidden;
+  overflow-x-hidden;
 }
 
 body {
@@ -33,31 +51,39 @@ body {
   height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #151820;
+  background: color-mix(in srgb, var(--bg) 80%, #000);
 }
 ::-webkit-scrollbar-thumb {
   background: #3a4055;
   border-radius: 4px;
 }
-::-webkit-scrollbar-thumb:hover {
-  background: #4b5563;
-}
 
 @layer components {
   .card {
-    @apply bg-[#1a1d27] border border-[#2a2f3d] rounded-2xl shadow-xl;
+    @apply rounded-2xl shadow-xl border;
+    background: var(--card);
+    border-color: var(--border);
   }
   .btn-primary {
     @apply bg-blue-600 hover:bg-blue-500 text-white font-medium py-2.5 px-5 rounded-xl transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed;
   }
   .btn-ghost {
-    @apply text-gray-400 hover:text-white hover:bg-white/5 px-3 py-2 rounded-lg transition;
+    @apply px-3 py-2 rounded-lg transition;
+    color: var(--muted);
   }
   .input-field {
-    @apply w-full bg-[#12151c] border border-[#2a2f3d] rounded-xl px-4 py-3 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition;
+    @apply w-full rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition border;
+    background: var(--bg);
+    border-color: var(--border);
+    color: var(--text);
   }
   .badge {
     @apply text-xs font-medium px-2.5 py-1 rounded-full;
+  }
+  .theme-toggle {
+    border-color: var(--border);
+    color: var(--text);
+    background: var(--card);
   }
 }
 
@@ -77,7 +103,7 @@ body.otp-shell header.z-20 {
 
 body.admin-shell {
   padding-bottom: 0;
-  background: #08090d;
+  background: var(--bg);
 }
 @media (min-width: 1024px) {
   body.admin-shell {
@@ -86,6 +112,44 @@ body.admin-shell {
 }
 body.admin-shell header.z-20 {
   display: none !important;
+}
+
+html.theme-light .text-white,
+html.theme-light .text-gray-100,
+html.theme-light .text-slate-100 {
+  color: #111827 !important;
+}
+html.theme-light .text-gray-400,
+html.theme-light .text-gray-500,
+html.theme-light .text-slate-400,
+html.theme-light .text-slate-500 {
+  color: #4b5563 !important;
+}
+html.theme-light .bg-\[\#0f1117\],
+html.theme-light .bg-\[\#0f1117\]\/90,
+html.theme-light .bg-\[\#0b0c12\],
+html.theme-light .bg-\[\#0b0c12\]\/95,
+html.theme-light .bg-\[\#12151c\],
+html.theme-light .bg-\[\#12151c\]\/95,
+html.theme-light .bg-\[\#1a1d27\],
+html.theme-light .bg-\[\#08090d\] {
+  background-color: var(--header) !important;
+}
+html.theme-light .border-\[\#2a2f3d\],
+html.theme-light .border-violet-500\/20,
+html.theme-light .border-violet-500\/30,
+html.theme-light .border-white\/10,
+html.theme-light .border-white\/5 {
+  border-color: var(--border) !important;
+}
+html.theme-light header,
+html.theme-light aside,
+html.theme-light nav.fixed {
+  background: #ffffff !important;
+  color: #111827;
+}
+html.theme-light body.admin-shell {
+  background: #f3f5f9;
 }
 
 @media (max-width: 640px) {
