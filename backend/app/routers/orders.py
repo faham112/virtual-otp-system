@@ -16,6 +16,7 @@ from app.services.providers import (
     store_provider_order_id,
     get_active_provider_name,
 )
+from app.pricing import get_markup_usd, sell_price
 
 router = APIRouter()
 
@@ -97,13 +98,7 @@ async def apply_fivesim_status(order: Order, user: User, db: Session, data: dict
 
 
 def get_markup_percent(db: Session) -> float:
-    setting = db.query(Setting).filter(Setting.key == "markup_percent").first()
-    if setting:
-        try:
-            return float(setting.value)
-        except (ValueError, TypeError):
-            return 50.0
-    return 50.0
+    return get_markup_usd(db)
 
 
 @router.post("/buy", response_model=OrderOut)
@@ -119,7 +114,7 @@ async def buy_number(
     if user.balance < 0.01:
         raise HTTPException(status_code=400, detail="Insufficient balance. Please top up.")
 
-    markup = get_markup_percent(db)
+    markup = get_markup_usd(db)
     try:
         fivesim = make_active_provider(db)
     except ValueError as e:
@@ -143,7 +138,7 @@ async def buy_number(
             pass
         raise HTTPException(status_code=400, detail="Invalid price received from provider")
 
-    user_cost = round(provider_cost * (1 + markup / 100), 4)
+    user_cost = sell_price(provider_cost, markup)
 
     if user.balance < user_cost:
         try:
