@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import axios from "axios";
 import Cookies from "js-cookie";
+import ThemeToggle from "./ThemeToggle";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -112,7 +113,8 @@ export default function AppHeader({ title }: Props) {
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
           <NavLinks />
         </nav>
-        <div className="p-3 border-t border-[#2a2f3d]">
+        <div className="p-3 border-t border-[#2a2f3d] space-y-2">
+          <ThemeToggle />
           <button type="button" onClick={logout} className="w-full text-left px-3 py-2.5 rounded-xl text-sm text-red-400 hover:bg-red-500/10">Logout</button>
           <p className="px-3 pt-2 text-[10px] text-gray-600">© {new Date().getFullYear()} · Coded by Faham Baloch</p>
         </div>
@@ -127,9 +129,12 @@ export default function AppHeader({ title }: Props) {
             <span className="hidden lg:inline text-sm text-gray-400">Workspace</span>
           </div>
           <h1 className="justify-self-center font-semibold text-white text-center truncate px-2 text-sm sm:text-base">{title}</h1>
-          <div className="justify-self-end text-right">
-            <p className="text-[10px] leading-none text-gray-500 mb-0.5">Balance</p>
-            <p className="text-sm text-emerald-400 font-semibold">{balance !== null ? `$${balance.toFixed(2)}` : "..."}</p>
+          <div className="justify-self-end text-right flex items-center gap-2">
+            <ThemeToggle />
+            <div>
+              <p className="text-[10px] leading-none text-gray-500 mb-0.5">Balance</p>
+              <p className="text-sm text-emerald-400 font-semibold">{balance !== null ? `$${balance.toFixed(2)}` : "..."}</p>
+            </div>
           </div>
         </div>
       </header>
@@ -148,7 +153,8 @@ export default function AppHeader({ title }: Props) {
             <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
               <NavLinks onPick={() => setOpen(false)} />
             </nav>
-            <div className="p-3 border-t border-[#2a2f3d]">
+            <div className="p-3 border-t border-[#2a2f3d] space-y-2">
+              <ThemeToggle />
               <button type="button" onClick={logout} className="w-full text-left px-3 py-2.5 rounded-xl text-sm text-red-400 hover:bg-red-500/10">Logout</button>
               <p className="px-3 pt-2 text-[10px] text-gray-600">Coded by Faham Baloch</p>
             </div>
