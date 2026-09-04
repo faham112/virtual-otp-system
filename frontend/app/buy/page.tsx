@@ -34,7 +34,7 @@ function formatUsd(n: number): string {
 
 export default function BuyPage() {
   const router = useRouter();
-  const [service, setService] = useState("whatsapp");
+  const [service, setService] = useState("facebook");
   const [country, setCountry] = useState("any");
   const [loading, setLoading] = useState(false);
   const [priceLoading, setPriceLoading] = useState(false);
@@ -44,6 +44,8 @@ export default function BuyPage() {
   const [quote, setQuote] = useState<any>(null);
   const [stockRows, setStockRows] = useState<any[]>([]);
   const [search, setSearch] = useState("");
+  const [quality, setQuality] = useState<"cheaper" | "balanced" | "quality">("cheaper");
+  const [hideOos, setHideOos] = useState(true);
   const [copied, setCopied] = useState<"phone" | "otp" | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -51,6 +53,7 @@ export default function BuyPage() {
   const sortedRows = useMemo(() => {
     const q = search.trim().toLowerCase();
     const rows = stockRows.filter((r) => {
+      if (hideOos && !r.available) return false;
       if (!q) return true;
       const label = countryLabel(r.country).toLowerCase();
       return String(r.country).includes(q) || label.includes(q);
@@ -61,10 +64,11 @@ export default function BuyPage() {
       if (aOk !== bOk) return aOk ? -1 : 1;
       const ap = rowPrice(a);
       const bp = rowPrice(b);
+      if (quality === "quality") return (bp || 0) - (ap || 0);
       if (ap !== bp) return (ap || 9999) - (bp || 9999);
       return countryLabel(a.country).localeCompare(countryLabel(b.country));
     });
-  }, [stockRows, search]);
+  }, [stockRows, search, hideOos, quality]);
 
   const cheapestLive = useMemo(() => {
     const live = stockRows.filter((r) => r.available && rowPrice(r) > 0);
@@ -144,7 +148,7 @@ export default function BuyPage() {
       return;
     }
     try {
-      const res = await axios.post(`${API_URL}/api/orders/buy`, { service, country }, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await axios.post(`${API_URL}/api/orders/buy`, { service, country, quality }, { headers: { Authorization: `Bearer ${token}` } });
       setSuccess(res.data);
     } catch (err: any) {
       const detail = err.response?.data?.detail;
@@ -219,6 +223,16 @@ export default function BuyPage() {
                       className={`text-left px-3 py-2.5 rounded-xl border text-sm ${service === s.value ? "bg-blue-600/20 border-blue-500/50 text-blue-300" : "bg-[#12151c] border-[#2a2f3d] text-gray-300"}`}>{s.label}</button>
                   ))}
                 </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Filter</label>
+                <div className="grid grid-cols-3 gap-2 mb-2">
+                  <button type="button" onClick={() => setQuality("cheaper")} className={`px-2 py-2.5 rounded-xl border text-xs font-medium ${quality === "cheaper" ? "bg-emerald-600/20 border-emerald-500/50 text-emerald-300" : "bg-[#12151c] border-[#2a2f3d] text-gray-400"}`}>Cheaper</button>
+                  <button type="button" onClick={() => setQuality("balanced")} className={`px-2 py-2.5 rounded-xl border text-xs font-medium ${quality === "balanced" ? "bg-emerald-600/20 border-emerald-500/50 text-emerald-300" : "bg-[#12151c] border-[#2a2f3d] text-gray-400"}`}>Balanced</button>
+                  <button type="button" onClick={() => setQuality("quality")} className={`px-2 py-2.5 rounded-xl border text-xs font-medium ${quality === "quality" ? "bg-emerald-600/20 border-emerald-500/50 text-emerald-300" : "bg-[#12151c] border-[#2a2f3d] text-gray-400"}`}>Better quality</button>
+                </div>
+                <p className="text-[11px] text-gray-500 mb-2">{quality === "cheaper" ? "Lowest HeroSMS offer." : quality === "quality" ? "Higher price numbers, usually better OTP success." : "Mid range price and success."}</p>
+                <button type="button" onClick={() => setHideOos((v) => !v)} className={`mb-3 px-3 py-1.5 rounded-lg border text-xs ${hideOos ? "bg-emerald-600/15 border-emerald-500/40 text-emerald-300" : "bg-[#12151c] border-[#2a2f3d] text-gray-400"}`}>{hideOos ? "In stock only" : "Show out of stock"}</button>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Country {stockLoading ? "(loading rates...)" : `(${sortedRows.length} countries)`}</label>
