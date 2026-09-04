@@ -30,7 +30,7 @@ export default function AdminDepositsPage() {
   const approve = async () => {
     if (!pick) return;
     const amt = parseFloat(credit);
-    if (!amt || amt <= 0) { alert("Valid USDT amount likho"); return; }
+    if (!amt || amt <= 0) { alert("Enter a valid USDT amount"); return; }
     setBusy(true);
     try {
       await axios.post(`${API_URL}/api/admin/deposits/${pick.id}/approve`, { amount: amt }, { headers: { Authorization: `Bearer ${Cookies.get("token")}` } });
@@ -86,10 +86,10 @@ export default function AdminDepositsPage() {
             <p className="text-sm text-slate-400">{pick.slip_note}</p>
             <p className="text-sm text-amber-300">Requested: ${Number(pick.amount).toFixed(4)} USDT</p>
             {pick.proof_url && <a href={pick.proof_url} target="_blank" className="text-xs text-blue-400">Open receipt card</a>}
-            <label className="block text-xs text-slate-400">Credit USDT (rate change yahan edit karo)</label>
+            <label className="block text-xs text-slate-400">Credit USDT (edit if the rate moved)</label>
             <input className="input-field" value={credit} onChange={(e) => setCredit(e.target.value)} />
             <div className="flex gap-2">
-              <button disabled={busy} onClick={approve} className="btn-primary flex-1">Approve & credit</button>
+              <button disabled={busy} onClick={approve} className="btn-primary flex-1">Approve and credit</button>
               <button disabled={busy} onClick={() => reject(pick.id)} className="flex-1 rounded-xl border border-red-500/30 text-red-300">Reject</button>
             </div>
           </div>
