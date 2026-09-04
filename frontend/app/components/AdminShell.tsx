@@ -71,48 +71,44 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           <p className="text-white font-semibold mt-1">Admin Panel</p>
           <p className="text-xs text-slate-500 mt-1 truncate">{username}</p>
         </div>
-        <nav className="flex-1 p-3 space-y-1">
+        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
           <Nav />
         </nav>
         <div className="p-3 space-y-1 border-t border-violet-500/20">
-          <Link href="/dashboard" className="block px-3 py-2.5 rounded-xl text-sm text-slate-400 hover:text-white">
-            Open user app
-          </Link>
-          <button type="button" onClick={logout} className="w-full text-left px-3 py-2.5 rounded-xl text-sm text-red-400 hover:bg-red-500/10">
-            Logout
-          </button>
+          <Link href="/dashboard" className="block px-3 py-2.5 rounded-xl text-sm text-slate-400 hover:text-white">Open user app</Link>
+          <button type="button" onClick={logout} className="w-full text-left px-3 py-2.5 rounded-xl text-sm text-red-400 hover:bg-red-500/10">Logout</button>
+          <p className="px-3 pt-2 text-[10px] text-slate-600">© {new Date().getFullYear()} · Coded by Faham Baloch</p>
         </div>
       </aside>
 
       <header className="sticky top-0 z-30 border-b border-violet-500/20 bg-[#0b0c12]/95 backdrop-blur-xl">
-        <div className="px-4 py-3 flex items-center justify-between lg:pl-4">
-          <button type="button" className="lg:hidden w-10 h-10 rounded-xl border border-violet-500/30 text-violet-200" onClick={() => setOpen(true)} aria-label="Admin menu">
-            ☰
-          </button>
+        <div className="px-4 py-3 flex items-center justify-between gap-2">
+          <button type="button" className="lg:hidden w-10 h-10 rounded-xl border border-violet-500/30 text-violet-200" onClick={() => setOpen(true)} aria-label="Admin menu">☰</button>
           <div className="hidden lg:block">
             <p className="text-[11px] uppercase tracking-[0.16em] text-violet-400">Staff only</p>
             <p className="text-sm text-white font-medium">Operations console</p>
           </div>
           <span className="lg:hidden text-sm text-white font-medium">Admin</span>
-          <Link href="/admin/settings" className="text-xs text-violet-300 hover:text-white">USD + HeroSMS</Link>
+          <Link href="/admin/settings" className="text-xs text-violet-300 hover:text-white shrink-0">USD + HeroSMS</Link>
         </div>
       </header>
 
       {open && (
         <div className="lg:hidden fixed inset-0 z-50">
           <button type="button" className="absolute inset-0 bg-black/70" onClick={() => setOpen(false)} aria-label="Close" />
-          <div className="absolute inset-y-0 left-0 w-72 bg-[#0b0c12] border-r border-violet-500/20 p-3 flex flex-col">
+          <div className="absolute inset-y-0 left-0 w-72 max-w-[85%] bg-[#0b0c12] border-r border-violet-500/20 p-3 flex flex-col">
             <p className="px-3 py-3 text-white font-semibold">Admin Panel</p>
-            <nav className="flex-1 space-y-1">
+            <nav className="flex-1 space-y-1 overflow-y-auto">
               <Nav onPick={() => setOpen(false)} />
             </nav>
             <Link href="/dashboard" className="px-3 py-2.5 text-sm text-slate-400" onClick={() => setOpen(false)}>User app</Link>
             <button type="button" onClick={logout} className="text-left px-3 py-2.5 text-sm text-red-400">Logout</button>
+            <p className="px-3 pt-2 text-[10px] text-slate-600">Coded by Faham Baloch</p>
           </div>
         </div>
       )}
 
-      {children}
+      <div className="px-3 sm:px-4 overflow-x-hidden">{children}</div>
     </>
   );
 }
