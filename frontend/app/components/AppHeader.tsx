@@ -88,30 +88,14 @@ export default function AppHeader({ title }: Props) {
         const Icon = item.icon;
         const active = isActive(item.href);
         return (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={onPick}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition ${
-              active ? "bg-blue-600/20 text-blue-300" : "text-gray-400 hover:text-white hover:bg-white/[0.04]"
-            }`}
-          >
+          <Link key={item.href} href={item.href} onClick={onPick} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition ${active ? "bg-blue-600/20 text-blue-300" : "text-gray-400 hover:text-white hover:bg-white/[0.04]"}`}>
             <Icon className="w-5 h-5" />
             {item.label}
           </Link>
         );
       })}
       {isAdmin && (
-        <Link
-          href="/admin"
-          onClick={onPick}
-          className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition ${
-            isActive("/admin") ? "bg-purple-600/20 text-purple-300" : "text-purple-300/80 hover:text-purple-200 hover:bg-white/[0.04]"
-          }`}
-        >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 6V4m0 16v-2m8-6h2M2 12h2m13.7 6.7l1.4 1.4M4.9 4.9l1.4 1.4m11.4-1.4l1.4-1.4M4.9 19.1l1.4-1.4M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-          </svg>
+        <Link href="/admin" onClick={onPick} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition ${isActive("/admin") ? "bg-purple-600/20 text-purple-300" : "text-purple-300/80 hover:text-purple-200 hover:bg-white/[0.04]"}`}>
           Admin
         </Link>
       )}
@@ -125,37 +109,27 @@ export default function AppHeader({ title }: Props) {
           <p className="text-white font-semibold">Virtual OTP</p>
           <p className="text-xs text-gray-500 mt-1 truncate">{username || "Account"}</p>
         </div>
-        <nav className="flex-1 p-3 space-y-1">
+        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
           <NavLinks />
         </nav>
         <div className="p-3 border-t border-[#2a2f3d]">
-          <button type="button" onClick={logout} className="w-full text-left px-3 py-2.5 rounded-xl text-sm text-red-400 hover:bg-red-500/10">
-            Logout
-          </button>
+          <button type="button" onClick={logout} className="w-full text-left px-3 py-2.5 rounded-xl text-sm text-red-400 hover:bg-red-500/10">Logout</button>
+          <p className="px-3 pt-2 text-[10px] text-gray-600">© {new Date().getFullYear()} · Coded by Faham Baloch</p>
         </div>
       </aside>
 
       <header className="sticky top-0 z-30 bg-[#0f1117]/90 backdrop-blur-xl border-b border-[#2a2f3d]">
-        <div className="px-4 py-3 grid grid-cols-3 items-center lg:pl-4">
+        <div className="px-4 py-3 grid grid-cols-3 items-center">
           <div className="justify-self-start">
-            <button
-              type="button"
-              aria-label="Menu"
-              onClick={() => setOpen(true)}
-              className="lg:hidden w-10 h-10 rounded-xl border border-[#2a2f3d] bg-[#12151c] text-gray-200 flex items-center justify-center"
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
+            <button type="button" aria-label="Menu" onClick={() => setOpen(true)} className="lg:hidden w-10 h-10 rounded-xl border border-[#2a2f3d] bg-[#12151c] text-gray-200 flex items-center justify-center">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
             </button>
             <span className="hidden lg:inline text-sm text-gray-400">Workspace</span>
           </div>
-          <h1 className="justify-self-center font-semibold text-white text-center truncate px-2">{title}</h1>
+          <h1 className="justify-self-center font-semibold text-white text-center truncate px-2 text-sm sm:text-base">{title}</h1>
           <div className="justify-self-end text-right">
             <p className="text-[10px] leading-none text-gray-500 mb-0.5">Balance</p>
-            <p className="text-sm text-emerald-400 font-semibold">
-              {balance !== null ? `$${balance.toFixed(2)}` : "..."}
-            </p>
+            <p className="text-sm text-emerald-400 font-semibold">{balance !== null ? `$${balance.toFixed(2)}` : "..."}</p>
           </div>
         </div>
       </header>
@@ -169,19 +143,14 @@ export default function AppHeader({ title }: Props) {
                 <p className="text-white font-semibold">Virtual OTP</p>
                 <p className="text-xs text-gray-500 mt-1">{username || "Account"}</p>
               </div>
-              <button type="button" onClick={() => setOpen(false)} className="text-gray-400 hover:text-white">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+              <button type="button" onClick={() => setOpen(false)} className="text-gray-400 hover:text-white">×</button>
             </div>
-            <nav className="flex-1 p-3 space-y-1">
+            <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
               <NavLinks onPick={() => setOpen(false)} />
             </nav>
             <div className="p-3 border-t border-[#2a2f3d]">
-              <button type="button" onClick={logout} className="w-full text-left px-3 py-2.5 rounded-xl text-sm text-red-400 hover:bg-red-500/10">
-                Logout
-              </button>
+              <button type="button" onClick={logout} className="w-full text-left px-3 py-2.5 rounded-xl text-sm text-red-400 hover:bg-red-500/10">Logout</button>
+              <p className="px-3 pt-2 text-[10px] text-gray-600">Coded by Faham Baloch</p>
             </div>
           </div>
         </div>
@@ -193,13 +162,7 @@ export default function AppHeader({ title }: Props) {
             const Icon = item.icon;
             const active = isActive(item.href);
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex flex-col items-center justify-center gap-1 py-2.5 text-[11px] ${
-                  active ? "text-blue-300" : "text-gray-500"
-                }`}
-              >
+              <Link key={item.href} href={item.href} className={`flex flex-col items-center justify-center gap-1 py-2.5 text-[11px] ${active ? "text-blue-300" : "text-gray-500"}`}>
                 <Icon className="w-5 h-5" />
                 {item.label}
               </Link>
