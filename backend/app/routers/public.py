@@ -6,6 +6,7 @@ from app.database import SessionLocal
 from app.models import User, Order, Setting, DepositRequest
 from app.schemas import ALLOWED_COUNTRIES, ALLOWED_SERVICES
 from app.proof import proof_token, token_ok, proof_path, slip_path, load_slip
+from app.fx import pkr_per_usd
 
 router = APIRouter()
 
@@ -54,6 +55,11 @@ def public_stats():
         }
     finally:
         db.close()
+
+
+@router.get("/fx")
+async def public_fx():
+    return await pkr_per_usd()
 
 
 def _deposit_payload(deposit_id: int, token: str):
@@ -107,40 +113,7 @@ def proof_slip(deposit_id: int, token: str):
 def proof_html(deposit_id: int, token: str):
     data = _deposit_payload(deposit_id, token)
     img = data["slip_url"]
-    title = f"Deposit ${data['amount']:.2f} USD · {data['username']}"
+    title = f"Deposit ${data['amount']:.2f} USDT · {data['username']}"
     desc = f"{data['bank_name']} · {data['status']} · Request #{data['id']}"
     img_tag = f'<img src="{img}" alt="Receipt" style="width:100%;border-radius:16px;border:1px solid #2a2f3d"/>' if img else "<p>No receipt uploaded.</p>"
-    return f"""<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>{title}</title>
-<meta property="og:title" content="{title}"/>
-<meta property="og:description" content="{desc}"/>
-<meta property="og:type" content="website"/>
-<meta property="og:url" content="{data['proof_url']}"/>
-{"<meta property=\"og:image\" content=\""+img+"\"/>" if img else ""}
-<meta name="twitter:card" content="summary_large_image"/>
-<style>
-body{{margin:0;font-family:Inter,system-ui,sans-serif;background:#0f1117;color:#e5e7eb}}
-.wrap{{max-width:520px;margin:0 auto;padding:24px}}
-.card{{background:#1a1d27;border:1px solid #2a2f3d;border-radius:20px;padding:20px}}
-.muted{{color:#9ca3af;font-size:13px}}
-.amt{{font-size:28px;font-weight:700;color:#34d399}}
-</style>
-</head>
-<body>
-<div class="wrap">
-  <div class="card">
-    <p class="muted">Virtual OTP deposit receipt</p>
-    <p class="amt">${data['amount']:.2f} USD</p>
-    <p>User: <b>{data['username']}</b></p>
-    <p>Bank: {data['bank_name']}</p>
-    <p>Status: {data['status']}</p>
-    <p class="muted">{data['slip_note']}</p>
-    <div style="margin-top:16px">{img_tag}</div>
-  </div>
-</div>
-</body>
-</html>"""
+    return f"""<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>{title}</title><meta property="og:title" content="{title}"/><meta property="og:description" content="{desc}"/>{('<meta property="og:image" content="'+img+'"/>') if img else ''}</head><body style="font-family:sans-serif;background:#0f1117;color:#e5e7eb;padding:24px"><div style="max-width:520px;margin:auto;background:#1a1d27;border:1px solid #2a2f3d;border-radius:20px;padding:20px"><p>{desc}</p><p style="font-size:28px;color:#34d399">${data['amount']:.2f} USDT</p><p>User: {data['username']}</p><p>{data['slip_note']}</p>{img_tag}</div></body></html>"""
