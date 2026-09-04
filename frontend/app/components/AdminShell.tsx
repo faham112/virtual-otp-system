@@ -10,6 +10,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 const ADMIN_NAV = [
   { href: "/admin", label: "Control Panel" },
+  { href: "/admin/settings", label: "USD + HeroSMS" },
   { href: "/admin/providers", label: "API Keys" },
 ];
 
@@ -85,12 +86,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 
       <header className="sticky top-0 z-30 border-b border-violet-500/20 bg-[#0b0c12]/95 backdrop-blur-xl">
         <div className="px-4 py-3 flex items-center justify-between lg:pl-4">
-          <button
-            type="button"
-            className="lg:hidden w-10 h-10 rounded-xl border border-violet-500/30 text-violet-200"
-            onClick={() => setOpen(true)}
-            aria-label="Admin menu"
-          >
+          <button type="button" className="lg:hidden w-10 h-10 rounded-xl border border-violet-500/30 text-violet-200" onClick={() => setOpen(true)} aria-label="Admin menu">
             ☰
           </button>
           <div className="hidden lg:block">
@@ -98,9 +94,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
             <p className="text-sm text-white font-medium">Operations console</p>
           </div>
           <span className="lg:hidden text-sm text-white font-medium">Admin</span>
-          <Link href="/dashboard" className="text-xs text-slate-400 hover:text-white">
-            User app →
-          </Link>
+          <Link href="/admin/settings" className="text-xs text-violet-300 hover:text-white">USD + HeroSMS</Link>
         </div>
       </header>
 
