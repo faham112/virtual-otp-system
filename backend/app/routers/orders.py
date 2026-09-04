@@ -123,7 +123,8 @@ async def buy_number(
     try:
         result = await fivesim.buy_best(
             country=order_data.country,
-            product=order_data.service
+            product=order_data.service,
+            quality=getattr(order_data, "quality", "cheaper") or "cheaper",
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to buy number: {str(e)}")
