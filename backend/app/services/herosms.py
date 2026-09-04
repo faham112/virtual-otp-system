@@ -160,7 +160,7 @@ class HeroSMSService:
             "country": best_slug or country,
         }
 
-    async def buy_best(self, country: str, product: str) -> Dict[str, Any]:
+    async def buy_best(self, country: str, product: str, quality: str = "cheaper", **kwargs) -> Dict[str, Any]:
         raw = await self.get_prices(country=None if country == "any" else country, product=product)
         parsed = self.parse_best_price(raw, country, product)
         if not parsed.get("available"):
@@ -177,8 +177,11 @@ class HeroSMSService:
         if cid is not None:
             params["country"] = cid
         cost = float(parsed.get("provider_cost") or 0)
-        if cost > 0:
-            params["maxPrice"] = round(cost * 1.25, 4)
+        q = (quality or "cheaper").lower().strip()
+        if cost > 0 and q == "cheaper":
+            params["maxPrice"] = round(cost * 1.2, 4)
+        elif cost > 0 and q == "balanced":
+            params["maxPrice"] = round(max(cost * 3.0, cost + 0.25), 4)
         text = await self._get(params)
         if "WRONG_MAX_PRICE" in text or "MAX_PRICE" in text:
             params.pop("maxPrice", None)
@@ -199,7 +202,7 @@ class HeroSMSService:
             "phone": phone if str(phone).startswith("+") else f"+{phone}",
             "price": float(parsed.get("provider_cost") or 0),
             "_resolved_country": target,
-            "_resolved_operator": "any",
+            "_resolved_operator": q,
         }
 
     async def check_order(self, order_id: str) -> Dict[str, Any]:
