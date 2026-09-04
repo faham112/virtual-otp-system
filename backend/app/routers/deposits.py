@@ -8,6 +8,7 @@ from app.models import User, DepositRequest
 from app.auth import get_current_user
 from app.settings_helper import get_setting
 from app.proof import proof_token, proof_path, slip_path, save_slip
+from app.fx import usd_from_pkr
 
 router = APIRouter()
 
@@ -20,10 +21,13 @@ BANK_KEYS = [
 
 
 class DepositCreate(BaseModel):
-    amount: float = Field(..., gt=0, le=100000)
+    amount: Optional[float] = Field(None, gt=0, le=100000)
+    pkr_amount: Optional[float] = Field(None, gt=0, le=10000000)
+    usd_amount: Optional[float] = Field(None, gt=0, le=100000)
+    fx_rate: Optional[float] = Field(None, gt=0)
     bank_key: str
-    slip_note: Optional[str] = None
     slip_image: Optional[str] = None
+    slip_note: Optional[str] = None
 
 
 @router.get("/banks")
@@ -60,13 +64,22 @@ def create_deposit(
     if not data.slip_image:
         raise HTTPException(status_code=400, detail="Upload the payment receipt first")
 
+    pkr = float(data.pkr_amount or 0)
+    rate = float(data.fx_rate or 0)
+    usd = float(data.usd_amount or data.amount or 0)
+    if pkr > 0 and rate > 0:
+        usd = usd_from_pkr(pkr, rate)
+    if usd <= 0:
+        raise HTTPException(status_code=400, detail="Enter PKR amount")
+
     bank_name = get_setting(db, f"{data.bank_key}_name", data.bank_key)
+    note = f"PKR {pkr:.2f} @ {rate:.4f} = ${usd:.4f} USDT" if pkr else (data.slip_note or "")
     dep = DepositRequest(
         user_id=current_user.id,
-        amount=round(data.amount, 2),
+        amount=round(usd, 4),
         bank_key=data.bank_key,
         bank_name=bank_name,
-        slip_note=(data.slip_note or "")[:500],
+        slip_note=note[:500],
         slip_image=None,
         status="pending",
     )
@@ -89,20 +102,23 @@ def create_deposit(
     whatsapp_numbers = [n.strip() for n in (wa1, wa2) if n and n.strip()]
     message = (
         f"Assalam o Alaikum Admin,\n\n"
-        f"USD deposit request ready hai.\n\n"
+        f"PKR deposit request.\n\n"
         f"User: {current_user.username}\n"
-        f"Amount: ${dep.amount:.2f} USD\n"
+        f"Sent: Rs {pkr:.2f}\n"
+        f"Rate: {rate:.4f} PKR / USDT\n"
+        f"Requested credit: ${usd:.4f} USDT\n"
         f"Bank: {bank_name}\n"
-        f"Note: {(data.slip_note or '-')}\n"
         f"Request: #{dep.id}\n\n"
-        f"Receipt card (image preview):\n{url}\n\n"
-        f"Is link pe receipt attached hai. Verify karke approve kar dein."
+        f"Receipt card:\n{url}\n\n"
+        f"Verify karke approve kar dein."
     )
     return {
         "message": "Deposit request submitted",
         "deposit_id": dep.id,
         "status": dep.status,
         "amount": dep.amount,
+        "pkr_amount": pkr,
+        "fx_rate": rate,
         "bank_name": bank_name,
         "username": current_user.username,
         "proof_url": url,
