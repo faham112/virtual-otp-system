@@ -7,6 +7,7 @@ from app.schemas import UserOut, AddBalance, MarkupUpdate, AdminOrderOut, Toggle
 from app.auth import get_current_admin
 from app.services.fivesim import FiveSimService
 from app.settings_helper import make_fivesim, set_setting
+from app.proof import proof_token, proof_path
 
 router = APIRouter()
 
@@ -179,6 +180,7 @@ def list_deposits(
     )
     out = []
     for d, username in rows:
+        token = proof_token(d.id)
         out.append({
             "id": d.id,
             "user_id": d.user_id,
@@ -187,7 +189,8 @@ def list_deposits(
             "bank_key": d.bank_key,
             "bank_name": d.bank_name,
             "slip_note": d.slip_note,
-            "slip_image": d.slip_image,
+            "has_slip": bool(d.slip_image),
+            "proof_url": proof_path(d.id, token),
             "status": d.status,
             "admin_note": d.admin_note,
             "created_at": d.created_at.isoformat() if d.created_at else None,
