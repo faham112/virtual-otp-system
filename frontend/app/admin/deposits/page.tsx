@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import Cookies from "js-cookie";
-import AdminShell from "../../components/AdminShell";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -50,31 +49,29 @@ export default function AdminDepositsPage() {
 
   return (
     <>
-      <AdminShell>
-        <main className="max-w-5xl mx-auto py-6 space-y-4">
-          <h1 className="text-white font-semibold">Deposit requests</h1>
-          <div className="card overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead><tr className="text-left text-slate-500 border-b border-white/10">
-                <th className="p-3">User</th><th className="p-3">Requested</th><th className="p-3">Detail</th><th className="p-3">Status</th><th className="p-3"></th>
-              </tr></thead>
-              <tbody>
-                {rows.map((d) => (
-                  <tr key={d.id} className="border-t border-white/5">
-                    <td className="p-3 text-white">{d.username}</td>
-                    <td className="p-3 text-emerald-400 font-mono">${Number(d.amount).toFixed(4)} USDT</td>
-                    <td className="p-3 text-slate-400 text-xs">{d.slip_note}<div>{d.bank_name}</div></td>
-                    <td className="p-3">{d.status}</td>
-                    <td className="p-3">
-                      {d.status === "pending" && <button className="text-xs text-violet-300" onClick={() => open(d)}>Review</button>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </main>
-      </AdminShell>
+      <main className="max-w-5xl mx-auto py-6 space-y-4">
+        <h1 className="text-white font-semibold">Deposit requests</h1>
+        <div className="card overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead><tr className="text-left text-slate-500 border-b border-white/10">
+              <th className="p-3">User</th><th className="p-3">Requested</th><th className="p-3">Detail</th><th className="p-3">Status</th><th className="p-3"></th>
+            </tr></thead>
+            <tbody>
+              {rows.map((d) => (
+                <tr key={d.id} className="border-t border-white/5">
+                  <td className="p-3 text-white">{d.username}</td>
+                  <td className="p-3 text-emerald-400 font-mono">${Number(d.amount).toFixed(4)} USDT</td>
+                  <td className="p-3 text-slate-400 text-xs">{d.slip_note}<div>{d.bank_name}</div></td>
+                  <td className="p-3">{d.status}</td>
+                  <td className="p-3">
+                    {d.status === "pending" && <button className="text-xs text-violet-300" onClick={() => open(d)}>Review</button>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </main>
 
       {pick && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
