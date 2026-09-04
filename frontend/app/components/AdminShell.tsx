@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import axios from "axios";
 import Cookies from "js-cookie";
+import ThemeToggle from "./ThemeToggle";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -72,7 +73,10 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         <div className="px-4 py-3 flex items-center justify-between gap-2">
           <button type="button" className="lg:hidden w-10 h-10 rounded-xl border border-violet-500/30 text-violet-200" onClick={() => setOpen(true)}>☰</button>
           <span className="text-sm text-white font-medium">Admin</span>
-          <Link href="/admin/deposits" className="text-xs text-violet-300">Deposits</Link>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <Link href="/admin/deposits" className="text-xs text-violet-300">Deposits</Link>
+          </div>
         </div>
       </header>
       {open && (
