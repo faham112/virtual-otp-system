@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine, Base
-from app.routers import auth, users, orders, admin, catalog, deposits, provider_admin
+from app.routers import auth, users, orders, admin, catalog, deposits, provider_admin, public
 from app.seed import seed_database
 import os
 import asyncio
@@ -26,8 +26,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Virtual OTP System",
-    description="Multi-user Virtual Number System with 5sim integration - Secure & Production Ready",
-    version="2.3.2",
+    description="Multi-user Virtual Number System - Secure & Production Ready",
+    version="2.5.0",
     lifespan=lifespan
 )
 
@@ -49,16 +49,17 @@ app.include_router(catalog.router, prefix="/api/catalog", tags=["Catalog"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 app.include_router(provider_admin.router, prefix="/api/admin", tags=["Admin"])
 app.include_router(deposits.router, prefix="/api/deposits", tags=["Deposits"])
+app.include_router(public.router, prefix="/api/public", tags=["Public"])
 
 @app.get("/")
 def root():
     return {
         "message": "Virtual OTP System API is running",
         "docs": "/docs",
-        "version": "2.3.2",
+        "version": "2.5.0",
         "status": "healthy"
     }
 
 @app.get("/health")
 def health():
-    return {"status": "healthy", "version": "2.3.2"}
+    return {"status": "healthy", "version": "2.5.0"}
