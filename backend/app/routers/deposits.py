@@ -101,8 +101,8 @@ def create_deposit(
     wa2 = get_setting(db, "admin_whatsapp_2", "") or ""
     whatsapp_numbers = [n.strip() for n in (wa1, wa2) if n and n.strip()]
     message = (
-        f"Assalam o Alaikum Admin,\n\n"
-        f"PKR deposit request.\n\n"
+        f"Hello Admin,\n\n"
+        f"A PKR deposit request is ready.\n\n"
         f"User: {current_user.username}\n"
         f"Sent: Rs {pkr:.2f}\n"
         f"Rate: {rate:.4f} PKR / USDT\n"
@@ -110,7 +110,7 @@ def create_deposit(
         f"Bank: {bank_name}\n"
         f"Request: #{dep.id}\n\n"
         f"Receipt card:\n{url}\n\n"
-        f"Verify karke approve kar dein."
+        f"Please verify the receipt and approve."
     )
     return {
         "message": "Deposit request submitted",
