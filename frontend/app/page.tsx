@@ -1,46 +1,144 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import axios from "axios";
+import SiteFooter from "./components/SiteFooter";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+type Stats = {
+  ok?: boolean;
+  site?: string;
+  users?: number;
+  completed_otps?: number;
+  pending_otps?: number;
+  countries?: number;
+  services?: number;
+  recent?: { service: string; country: string; at?: string }[];
+};
+
+const STEPS = [
+  { n: "1", t: "Create account", d: "Register with username, email and a strong password. Then sign in." },
+  { n: "2", t: "Add wallet balance", d: "Open Deposit, pick a bank, send the amount and upload the slip note. Admin approves, balance appears in green." },
+  { n: "3", t: "Pick service + country", d: "Buy page pe Facebook / WhatsApp etc choose karo. Cheaper, Balanced ya Better quality filter lagaao." },
+  { n: "4", t: "Receive OTP", d: "Number copy karo, app mein lagao. OTP yahan auto aata hai. No SMS? Cancel & refund." },
+];
 
 export default function Home() {
+  const [stats, setStats] = useState<Stats | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    const load = async () => {
+      try {
+        const res = await axios.get(`${API_URL}/api/public/stats`, { timeout: 8000 });
+        if (live) setStats(res.data || {});
+      } catch {
+        if (live) setStats({ ok: false, users: 0, completed_otps: 0, countries: 150, services: 15, recent: [] });
+      }
+    };
+    load();
+    const id = setInterval(load, 20000);
+    return () => { live = false; clearInterval(id); };
+  }, []);
+
+  const site = stats?.site || "Virtual OTP";
+
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden">
-      {/* subtle background glow */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-blue-600/10 rounded-full blur-3xl" />
-      </div>
-
-      <div className="relative z-10 max-w-md w-full card p-10 text-center">
-        <div className="w-16 h-16 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
-          <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-          </svg>
+    <div className="min-h-screen flex flex-col overflow-x-hidden">
+      <header className="sticky top-0 z-30 border-b border-[#2a2f3d] bg-[#0f1117]/90 backdrop-blur-xl">
+        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+          <Link href="/" className="font-semibold text-white truncate">{site}</Link>
+          <div className="flex items-center gap-2 shrink-0">
+            <Link href="/login" className="btn-ghost text-sm">Sign in</Link>
+            <Link href="/register" className="btn-primary text-sm py-2 px-4">Get started</Link>
+          </div>
         </div>
+      </header>
 
-        <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">
-          Virtual OTP
-        </h1>
-        <p className="text-gray-400 mb-8 text-sm leading-relaxed">
-          Temporary numbers for receiving verification codes.<br />
-          Fast, secure & multi-user ready.
-        </p>
+      <main className="flex-1">
+        <section className="max-w-5xl mx-auto px-4 pt-10 pb-8 sm:pt-16">
+          <p className="text-xs uppercase tracking-[0.16em] text-blue-400 mb-3">Live virtual numbers</p>
+          <h1 className="text-3xl sm:text-5xl font-bold text-white leading-tight max-w-3xl">
+            Temporary numbers for Facebook, WhatsApp and more
+          </h1>
+          <p className="mt-4 text-gray-400 max-w-2xl text-sm sm:text-base leading-relaxed">
+            Wallet se number khareedo, OTP isi dashboard pe receive karo. Cheap filter sasta number deta hai.
+            Better quality mehnga number leti hai — Facebook ke liye wahi use karo.
+          </p>
+          <div className="mt-6 flex flex-col sm:flex-row gap-3">
+            <Link href="/register" className="btn-primary text-center py-3 px-6">Create free account</Link>
+            <Link href="/login" className="text-center py-3 px-6 rounded-xl border border-[#2a2f3d] text-gray-200">I already have an account</Link>
+          </div>
+        </section>
 
-        <div className="space-y-3">
-          <Link href="/login" className="block w-full btn-primary py-3.5 text-center">
-            Sign In
-          </Link>
-          <Link
-            href="/register"
-            className="block w-full bg-[#12151c] hover:bg-[#1e2230] border border-[#2a2f3d] text-gray-200 font-medium py-3.5 rounded-xl transition text-center"
-          >
-            Create Account
-          </Link>
-        </div>
+        <section className="max-w-5xl mx-auto px-4 pb-10">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <Stat label="Users" value={stats?.users} />
+            <Stat label="OTPs delivered" value={stats?.completed_otps} />
+            <Stat label="Countries" value={stats?.countries} />
+            <Stat label="Services" value={stats?.services} />
+          </div>
+          <p className="text-[11px] text-gray-500 mt-2">Live counters refresh every 20 seconds. No phone numbers are shown publicly.</p>
+        </section>
 
-        <p className="mt-10 text-xs text-gray-500">
-          Secure virtual numbers platform
-        </p>
-      </div>
+        <section className="max-w-5xl mx-auto px-4 pb-10 grid md:grid-cols-2 gap-4">
+          <div className="card p-5 sm:p-6">
+            <h2 className="text-white font-semibold mb-4">How to use</h2>
+            <ol className="space-y-4">
+              {STEPS.map((s) => (
+                <li key={s.n} className="flex gap-3">
+                  <span className="w-7 h-7 rounded-lg bg-blue-600/20 text-blue-300 text-sm flex items-center justify-center shrink-0">{s.n}</span>
+                  <div>
+                    <p className="text-sm text-white font-medium">{s.t}</p>
+                    <p className="text-xs text-gray-500 mt-1 leading-relaxed">{s.d}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </div>
+          <div className="card p-5 sm:p-6">
+            <h2 className="text-white font-semibold mb-4">Recent deliveries</h2>
+            {!stats?.recent?.length ? (
+              <p className="text-sm text-gray-500">Waiting for the first completed OTP...</p>
+            ) : (
+              <ul className="space-y-2">
+                {stats.recent.map((r, i) => (
+                  <li key={i} className="flex items-center justify-between gap-3 text-sm border border-[#2a2f3d] rounded-xl px-3 py-2">
+                    <span className="text-gray-200 capitalize truncate">{r.service}</span>
+                    <span className="text-gray-500 capitalize truncate">{r.country}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
+
+        <section className="max-w-5xl mx-auto px-4 pb-14">
+          <div className="card p-5 sm:p-6">
+            <h2 className="text-white font-semibold mb-3">Read this before buying</h2>
+            <ul className="text-sm text-gray-400 space-y-2 leading-relaxed">
+              <li>Numbers are virtual and meant for one verification. Do not use them as a long-term SIM.</li>
+              <li>Cheaper numbers fail more on Facebook. Use Better quality if the OTP must arrive.</li>
+              <li>If no SMS comes, tap Cancel & Refund. Balance returns to the wallet.</li>
+              <li>Deposit is manual. Send the exact amount and wait for admin approval.</li>
+              <li>Keep your password private. Admins will never ask for it.</li>
+            </ul>
+          </div>
+        </section>
+      </main>
+
+      <SiteFooter />
+    </div>
+  );
+}
+
+function Stat({ label, value }: { label: string; value?: number }) {
+  return (
+    <div className="card p-4">
+      <p className="text-[11px] text-gray-500">{label}</p>
+      <p className="text-xl sm:text-2xl font-bold text-white mt-1">{typeof value === "number" ? value.toLocaleString() : "—"}</p>
     </div>
   );
 }
