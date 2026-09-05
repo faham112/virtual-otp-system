@@ -5,7 +5,17 @@ module.exports = {
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
-    extend: {},
+    extend: {
+      colors: {
+        bg: "var(--bg)",
+        card: "var(--card)",
+        line: "var(--border)",
+        fg: "var(--text)",
+        muted: "var(--muted)",
+        header: "var(--header)",
+        aside: "var(--aside)",
+      },
+    },
   },
   plugins: [],
-}
+};
