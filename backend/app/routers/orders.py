@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Tuple
@@ -8,8 +8,6 @@ from app.database import get_db
 from app.models import User, Order, Transaction, Setting
 from app.schemas import OrderCreate, OrderOut
 from app.auth import get_current_user
-from app.services.fivesim import FiveSimService
-from app.settings_helper import make_fivesim
 from app.services.providers import (
     make_active_provider,
     make_provider_for_order_id,
@@ -17,6 +15,7 @@ from app.services.providers import (
     get_active_provider_name,
 )
 from app.pricing import get_markup_usd, sell_price
+from app.rate_limit import limit_buy
 
 router = APIRouter()
 
@@ -79,14 +78,20 @@ async def apply_fivesim_status(order: Order, user: User, db: Session, data: dict
     if not code and text:
         code = _code_from_text(text)
     if code:
-        order.status = "completed"
-        order.otp_code = code
-        order.sms_text = text
+        locked = db.query(Order).filter(Order.id == order.id).with_for_update().first()
+        if not locked or locked.status in ["completed", "failed", "cancelled"]:
+            return False
+        locked.status = "completed"
+        locked.otp_code = code
+        locked.sms_text = text
         try:
-            await fivesim.finish_order(order.fivesim_order_id)
+            await fivesim.finish_order(locked.fivesim_order_id)
         except Exception:
             pass
         db.commit()
+        order.status = locked.status
+        order.otp_code = locked.otp_code
+        order.sms_text = locked.sms_text
         return True
     if status in ["CANCELED", "CANCELLED", "TIMEOUT", "BANNED"]:
         await refund_order(order, user, db, reason=status)
@@ -104,9 +109,12 @@ def get_markup_percent(db: Session) -> float:
 @router.post("/buy", response_model=OrderOut)
 async def buy_number(
     order_data: OrderCreate,
+    request: Request,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
+    limit_buy(request, current_user.id)
+
     user = db.query(User).filter(User.id == current_user.id).with_for_update().first()
     if not user or not user.is_active:
         raise HTTPException(status_code=400, detail="User not found or inactive")
@@ -141,14 +149,16 @@ async def buy_number(
 
     user_cost = sell_price(provider_cost, markup)
 
-    if user.balance < user_cost:
+    # Re-lock / re-read balance after provider call
+    user = db.query(User).filter(User.id == current_user.id).with_for_update().first()
+    if not user or user.balance < user_cost:
         try:
             await fivesim.cancel_order(str(result["id"]))
         except Exception:
             pass
         raise HTTPException(
             status_code=400,
-            detail=f"Insufficient balance. Required: ${user_cost:.4f}, Available: ${user.balance:.4f}"
+            detail=f"Insufficient balance. Required: ${user_cost:.4f}, Available: ${user.balance if user else 0:.4f}",
         )
 
     user.balance = round(user.balance - user_cost, 4)
@@ -162,7 +172,7 @@ async def buy_number(
         cost=user_cost,
         provider_cost=provider_cost,
         status="pending",
-        expires_at=datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(minutes=20)
+        expires_at=datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(minutes=20),
     )
     db.add(new_order)
 
@@ -170,7 +180,7 @@ async def buy_number(
         user_id=user.id,
         amount=-user_cost,
         type="debit",
-        description=f"Bought {order_data.service} ({resolved_country}) -> {result.get('phone')}"
+        description=f"Bought {order_data.service} ({resolved_country}) -> {result.get('phone')}",
     )
     db.add(txn)
 
@@ -182,7 +192,7 @@ async def buy_number(
 @router.get("/", response_model=List[OrderOut])
 async def get_my_orders(
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     pending = (
         db.query(Order)
@@ -217,7 +227,7 @@ async def get_my_orders(
 async def get_order_status(
     order_id: int,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     order = (
         db.query(Order)
@@ -247,39 +257,52 @@ async def get_order_status(
 
 
 async def refund_order(order: Order, user: User, db: Session, reason: str = "failed"):
-    if order.status in ["failed", "cancelled", "completed"]:
+    """Idempotent refund: locks order row so cancel + timeout cannot double-credit."""
+    locked_order = (
+        db.query(Order)
+        .filter(Order.id == order.id)
+        .with_for_update()
+        .first()
+    )
+    if not locked_order:
+        return
+    if locked_order.status in ["failed", "cancelled", "completed"]:
         return
 
-    locked_user = db.query(User).filter(User.id == user.id).with_for_update().first()
+    locked_user = db.query(User).filter(User.id == locked_order.user_id).with_for_update().first()
     if not locked_user:
         return
 
-    locked_user.balance = round(locked_user.balance + order.cost, 4)
-    order.status = "cancelled" if reason.lower() in ["cancelled", "canceled"] else "failed"
+    refund_amt = float(locked_order.cost or 0)
+    if refund_amt > 0:
+        locked_user.balance = round(locked_user.balance + refund_amt, 4)
+
+    locked_order.status = "cancelled" if reason.lower() in ["cancelled", "canceled"] else "failed"
 
     txn = Transaction(
         user_id=locked_user.id,
-        amount=order.cost,
+        amount=refund_amt,
         type="refund",
-        description=f"Refund for order #{order.id} ({reason})"
+        description=f"Refund for order #{locked_order.id} ({reason})",
     )
     db.add(txn)
 
-    if order.fivesim_order_id:
+    if locked_order.fivesim_order_id:
         try:
-            fivesim = make_provider_for_order_id(db, order.fivesim_order_id)
-            await fivesim.cancel_order(order.fivesim_order_id)
+            fivesim = make_provider_for_order_id(db, locked_order.fivesim_order_id)
+            await fivesim.cancel_order(locked_order.fivesim_order_id)
         except Exception:
             pass
 
     db.commit()
+    order.status = locked_order.status
 
 
 @router.post("/{order_id}/cancel")
 async def cancel_order(
     order_id: int,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     order = (
         db.query(Order)
