@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import axios from "axios";
 import Cookies from "js-cookie";
 
@@ -15,6 +14,21 @@ const BANK_FIELDS = [
   { key: "bank_national_2", label: "National Bank 2" },
 ];
 
+const TABS = [
+  { id: "users", label: "Users", emoji: "\uD83D\uDC65" },
+  { id: "orders", label: "Orders", emoji: "\uD83D\uDCF1" },
+  { id: "deposits", label: "Deposits", emoji: "\uD83D\uDCB0" },
+  { id: "settings", label: "Settings", emoji: "\u2699\uFE0F" },
+] as const;
+
+function statusEmoji(status: string) {
+  if (status === "completed" || status === "approved") return "\u2705";
+  if (status === "pending") return "\u23F3";
+  if (status === "cancelled") return "\uD83D\uDED1";
+  if (status === "failed" || status === "rejected") return "\u274C";
+  return "\u2022";
+}
+
 export default function AdminPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
@@ -24,7 +38,7 @@ export default function AdminPage() {
   const [settings, setSettings] = useState<any>({});
   const [providerBal, setProviderBal] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"users" | "orders" | "deposits" | "settings">("users");
+  const [activeTab, setActiveTab] = useState<(typeof TABS)[number]["id"]>("orders");
   const [showAddBalance, setShowAddBalance] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [balanceAmount, setBalanceAmount] = useState("");
@@ -63,7 +77,7 @@ export default function AdminPage() {
       setSettings(settingsRes.data || {});
       const s = settingsRes.data || {};
       if (s.markup_percent) setMarkupValue(String(s.markup_percent));
-      setFivesimKey(s.fivesim_api_key ? "••••••••" + String(s.fivesim_api_key).slice(-4) : "");
+      setFivesimKey(s.fivesim_api_key ? "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" + String(s.fivesim_api_key).slice(-4) : "");
       const bf: Record<string, string> = {};
       BANK_FIELDS.forEach(({ key }) => {
         bf[`${key}_name`] = s[`${key}_name`] || "";
@@ -73,9 +87,14 @@ export default function AdminPage() {
       setWa1(s.admin_whatsapp || "");
       setWa2(s.admin_whatsapp_2 || "");
       try {
-        const balRes = await axios.get(`${API_URL}/api/admin/fivesim-balance`, { headers });
-        setProviderBal(balRes.data.balance);
-      } catch { setProviderBal(null); }
+        const balRes = await axios.get(`${API_URL}/api/admin/provider-balance`, { headers });
+        setProviderBal(typeof balRes.data?.balance === "number" ? balRes.data.balance : null);
+      } catch {
+        try {
+          const balRes = await axios.get(`${API_URL}/api/admin/fivesim-balance`, { headers });
+          setProviderBal(balRes.data.balance);
+        } catch { setProviderBal(null); }
+      }
     } catch (err: any) {
       if (err.response?.status === 401 || err.response?.status === 403) {
         Cookies.remove("token");
@@ -117,7 +136,7 @@ export default function AdminPage() {
     setMarkupSaving(true);
     try {
       await axios.post(`${API_URL}/api/admin/set-markup`, { markup_percent: val }, { headers: getHeaders() });
-      alert(`Fixed system markup set to ${val}%`);
+      alert(`Markup saved: ${val}%`);
       fetchData();
     } catch (err: any) { alert(err.response?.data?.detail || "Failed to update markup"); }
     finally { setMarkupSaving(false); }
@@ -125,11 +144,11 @@ export default function AdminPage() {
 
   const handleSaveFivesimKey = async () => {
     const raw = fivesimKey.trim();
-    if (!raw || raw.startsWith("••••")) { alert("Paste a new 5sim API key"); return; }
+    if (!raw || raw.startsWith("\u2022")) { alert("Paste a new API key"); return; }
     setFivesimSaving(true);
     try {
       await axios.post(`${API_URL}/api/admin/settings`, { fivesim_api_key: raw }, { headers: getHeaders() });
-      alert("5sim API key saved");
+      alert("API key saved");
       fetchData();
     } catch (err: any) { alert(err.response?.data?.detail || "Failed to save API key"); }
     finally { setFivesimSaving(false); }
@@ -149,15 +168,14 @@ export default function AdminPage() {
     setWaSaving(true);
     try {
       await axios.post(`${API_URL}/api/admin/settings`, { admin_whatsapp: wa1.trim(), admin_whatsapp_2: wa2.trim() }, { headers: getHeaders() });
-      alert("Admin WhatsApp numbers saved");
+      alert("WhatsApp numbers saved");
       fetchData();
     } catch (err: any) { alert(err.response?.data?.detail || "Failed to save WhatsApp"); }
     finally { setWaSaving(false); }
   };
 
   const handleDeposit = async (id: number, action: "approve" | "reject") => {
-    if (action === "approve" && !confirm("Approve this deposit and credit user balance?")) return;
-    if (action === "reject" && !confirm("Reject this deposit?")) return;
+    if (!confirm(`${action === "approve" ? "Approve and credit" : "Reject"} this deposit?`)) return;
     setDepositActionId(id);
     try {
       await axios.post(`${API_URL}/api/admin/deposits/${id}/${action}`, {}, { headers: getHeaders() });
@@ -166,245 +184,237 @@ export default function AdminPage() {
     finally { setDepositActionId(null); }
   };
 
-  const logout = () => { Cookies.remove("token"); router.push("/login"); };
-
-  const statusColor = (status: string) => {
-    switch (status) {
-      case "completed": case "approved": return "bg-emerald-500/15 text-emerald-400 border-emerald-500/30";
-      case "pending": return "bg-amber-500/15 text-amber-400 border-amber-500/30";
-      case "failed": case "cancelled": case "rejected": return "bg-red-500/15 text-red-400 border-red-500/30";
-      default: return "bg-gray-500/15 text-gray-400 border-gray-500/30";
-    }
+  const statusClass = (status: string) => {
+    if (status === "completed" || status === "approved") return "text-emerald-500";
+    if (status === "pending") return "text-amber-500";
+    return "text-red-400";
   };
 
-  const totalUsers = users.length;
-  const totalOrders = orders.length;
+  const pendingDeposits = deposits.filter((d) => d.status === "pending").length;
   const pendingOrders = orders.filter((o) => o.status === "pending").length;
   const completedOrders = orders.filter((o) => o.status === "completed").length;
-  const pendingDeposits = deposits.filter((d) => d.status === "pending").length;
   const totalVolume = orders.filter((o) => o.status === "completed").reduce((sum, o) => sum + (o.cost || 0), 0);
   const profitEst = orders.filter((o) => o.status === "completed").reduce((sum, o) => sum + ((o.cost || 0) - (o.provider_cost || 0)), 0);
 
   if (loading) {
-    return (<div className="min-h-screen flex items-center justify-center"><p className="text-gray-400 text-sm">Loading Admin Panel...</p></div>);
+    return <div className="py-16 text-center text-muted text-sm">Loading admin...</div>;
   }
 
   return (
-    <div className="min-h-screen">
-      <header className="sticky top-0 z-20 bg-[#0f1117]/90 backdrop-blur-xl border-b border-[#2a2f3d]">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
-          <div>
-            <span className="font-semibold text-white">Admin Panel</span>
-            <p className="text-xs text-gray-500">Virtual OTP · Fixed markup system</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link href="/dashboard" className="btn-ghost text-sm">← User Dashboard</Link>
-            <button onClick={logout} className="btn-ghost text-sm text-red-400">Logout</button>
-          </div>
-        </div>
-      </header>
+    <div className="max-w-6xl mx-auto py-4 space-y-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+        <Stat emoji="\uD83D\uDC65" label="Users" value={String(users.length)} />
+        <Stat emoji="\uD83D\uDCF1" label="Orders" value={String(orders.length)} />
+        <Stat emoji="\u23F3" label="Pending" value={String(pendingOrders)} />
+        <Stat emoji="\uD83D\uDCB3" label="Deposits" value={String(pendingDeposits)} />
+        <Stat emoji="\uD83D\uDCB5" label="Volume" value={`$${totalVolume.toFixed(2)}`} />
+        <Stat emoji="\uD83D\uDCB0" label="Profit" value={`$${profitEst.toFixed(2)}`} />
+      </div>
 
-      <main className="max-w-6xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-8">
-          <div className="card p-5"><p className="text-xs text-gray-500 mb-1">Users</p><p className="text-2xl font-bold text-white">{totalUsers}</p></div>
-          <div className="card p-5"><p className="text-xs text-gray-500 mb-1">Orders</p><p className="text-2xl font-bold text-white">{totalOrders}</p></div>
-          <div className="card p-5"><p className="text-xs text-gray-500 mb-1">Pending Orders</p><p className="text-2xl font-bold text-amber-400">{pendingOrders}</p></div>
-          <div className="card p-5"><p className="text-xs text-gray-500 mb-1">Pending Deposits</p><p className="text-2xl font-bold text-amber-400">{pendingDeposits}</p></div>
-          <div className="card p-5"><p className="text-xs text-gray-500 mb-1">Volume</p><p className="text-2xl font-bold text-emerald-400">${totalVolume.toFixed(2)}</p></div>
-          <div className="card p-5"><p className="text-xs text-gray-500 mb-1">Est. Profit</p><p className="text-2xl font-bold text-purple-400">${profitEst.toFixed(2)}</p></div>
-        </div>
+      <div className="flex gap-1 overflow-x-auto pb-1">
+        {TABS.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`shrink-0 px-3 py-2 rounded-xl text-sm font-medium ${
+              activeTab === tab.id ? "bg-card border border-line text-fg" : "text-muted"
+            }`}
+          >
+            {tab.emoji} {tab.label}
+            {tab.id === "deposits" && pendingDeposits > 0 ? ` ${pendingDeposits}` : ""}
+          </button>
+        ))}
+      </div>
 
-        <div className="flex gap-2 mb-6 border-b border-[#2a2f3d] overflow-x-auto">
-          {(["users", "orders", "deposits", "settings"] as const).map((tab) => (
-            <button key={tab} onClick={() => setActiveTab(tab)}
-              className={`px-5 py-2.5 text-sm font-medium rounded-t-xl capitalize whitespace-nowrap ${activeTab === tab ? "bg-[#1a1d27] text-white border border-b-0 border-[#2a2f3d]" : "text-gray-400 hover:text-white"}`}>
-              {tab}
-              {tab === "deposits" && pendingDeposits > 0 && (
-                <span className="ml-1.5 text-xs bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded-full">{pendingDeposits}</span>
+      {activeTab === "users" && (
+        <div className="space-y-3 md:space-y-0 md:card md:overflow-x-auto">
+          <div className="md:hidden space-y-3">
+            {users.map((u) => (
+              <div key={u.id} className="card p-4 space-y-2">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-semibold text-fg">{u.is_admin ? "\uD83D\uDEE1\uFE0F " : "\uD83D\uDC64 "}{u.username}</p>
+                    <p className="text-xs text-muted break-all">{u.email}</p>
+                  </div>
+                  <p className="text-emerald-500 font-mono text-sm">${Number(u.balance || 0).toFixed(2)}</p>
+                </div>
+                <p className="text-xs text-muted">{u.is_active ? "\uD83D\uDFE2 Active" : "\uD83D\uDD34 Inactive"}</p>
+                <div className="flex gap-2">
+                  <button onClick={() => openAddBalance(u)} className="text-xs btn-primary py-1.5 px-3">+ Balance</button>
+                  <button onClick={() => handleToggleUser(u)} className="text-xs border border-line rounded-lg px-3 py-1.5">{u.is_active ? "Deactivate" : "Activate"}</button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <table className="hidden md:table w-full text-sm min-w-[720px]">
+            <thead><tr className="text-left text-muted border-b border-line">
+              <th className="p-3 whitespace-nowrap">ID</th>
+              <th className="p-3 whitespace-nowrap">User</th>
+              <th className="p-3 whitespace-nowrap">Balance</th>
+              <th className="p-3 whitespace-nowrap">Role</th>
+              <th className="p-3 whitespace-nowrap">Status</th>
+              <th className="p-3 whitespace-nowrap">Actions</th>
+            </tr></thead>
+            <tbody>
+              {users.map((u) => (
+                <tr key={u.id} className="border-t border-line">
+                  <td className="p-3 whitespace-nowrap text-muted">{u.id}</td>
+                  <td className="p-3"><p className="text-fg font-medium">{u.username}</p><p className="text-xs text-muted">{u.email}</p></td>
+                  <td className="p-3 whitespace-nowrap font-mono text-emerald-500">${Number(u.balance || 0).toFixed(4)}</td>
+                  <td className="p-3 whitespace-nowrap">{u.is_admin ? "Admin" : "User"}</td>
+                  <td className="p-3 whitespace-nowrap">{u.is_active ? "Active" : "Inactive"}</td>
+                  <td className="p-3 whitespace-nowrap">
+                    <button onClick={() => openAddBalance(u)} className="text-xs text-blue-500 mr-2">+ Balance</button>
+                    <button onClick={() => handleToggleUser(u)} className="text-xs text-muted">{u.is_active ? "Off" : "On"}</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {activeTab === "orders" && (
+        <div className="space-y-3 md:card md:overflow-x-auto">
+          <div className="md:hidden space-y-3">
+            {orders.map((o) => (
+              <div key={o.id} className="card p-4 space-y-2">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs text-muted">#{o.id} \u00b7 {o.username || o.user_id}</p>
+                    <p className="font-semibold text-fg capitalize">\uD83D\uDCF1 {o.service}</p>
+                    <p className="font-mono text-sm text-fg break-all">{o.phone_number || "No number"}</p>
+                  </div>
+                  <p className={`text-xs font-medium ${statusClass(o.status)}`}>{statusEmoji(o.status)} {o.status}</p>
+                </div>
+                <div className="flex justify-between text-xs text-muted">
+                  <span>Sell ${Number(o.cost || 0).toFixed(4)}</span>
+                  <span>Cost ${Number(o.provider_cost || 0).toFixed(4)}</span>
+                </div>
+                <p className="font-mono text-sm text-blue-500">{o.otp_code ? `OTP ${o.otp_code}` : "OTP pending"}</p>
+                <p className="text-[11px] text-muted">{o.created_at ? new Date(o.created_at).toLocaleString() : ""}</p>
+              </div>
+            ))}
+          </div>
+          <table className="hidden md:table w-full text-sm min-w-[900px]">
+            <thead><tr className="text-left text-muted border-b border-line">
+              <th className="p-3 whitespace-nowrap">ID</th>
+              <th className="p-3 whitespace-nowrap">User</th>
+              <th className="p-3 whitespace-nowrap">Phone</th>
+              <th className="p-3 whitespace-nowrap">Service</th>
+              <th className="p-3 whitespace-nowrap">Sell</th>
+              <th className="p-3 whitespace-nowrap">Cost</th>
+              <th className="p-3 whitespace-nowrap">Status</th>
+              <th className="p-3 whitespace-nowrap">OTP</th>
+              <th className="p-3 whitespace-nowrap">Date</th>
+            </tr></thead>
+            <tbody>
+              {orders.map((o) => (
+                <tr key={o.id} className="border-t border-line">
+                  <td className="p-3 whitespace-nowrap text-muted">#{o.id}</td>
+                  <td className="p-3 whitespace-nowrap text-fg">{o.username || o.user_id}</td>
+                  <td className="p-3 whitespace-nowrap font-mono text-fg">{o.phone_number || "\u2014"}</td>
+                  <td className="p-3 whitespace-nowrap capitalize">{o.service}</td>
+                  <td className="p-3 whitespace-nowrap font-mono text-emerald-500">${Number(o.cost || 0).toFixed(4)}</td>
+                  <td className="p-3 whitespace-nowrap font-mono text-muted">${Number(o.provider_cost || 0).toFixed(4)}</td>
+                  <td className={`p-3 whitespace-nowrap ${statusClass(o.status)}`}>{statusEmoji(o.status)} {o.status}</td>
+                  <td className="p-3 whitespace-nowrap font-mono">{o.otp_code || "\u2014"}</td>
+                  <td className="p-3 whitespace-nowrap text-xs text-muted">{o.created_at ? new Date(o.created_at).toLocaleString() : "\u2014"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {activeTab === "deposits" && (
+        <div className="space-y-3">
+          {deposits.length === 0 && <p className="text-sm text-muted">No deposit requests yet.</p>}
+          {deposits.map((d) => (
+            <div key={d.id} className="card p-4 space-y-2">
+              <div className="flex justify-between gap-3">
+                <div>
+                  <p className="font-semibold text-fg">\uD83D\uDCB0 {d.username || d.user_id}</p>
+                  <p className="text-xs text-muted break-words">{d.slip_note || d.bank_name}</p>
+                </div>
+                <p className="font-mono text-emerald-500">${Number(d.amount).toFixed(4)}</p>
+              </div>
+              <p className={`text-xs ${statusClass(d.status)}`}>{statusEmoji(d.status)} {d.status}</p>
+              {d.status === "pending" && (
+                <div className="flex gap-2">
+                  <button disabled={depositActionId === d.id} onClick={() => handleDeposit(d.id, "approve")} className="text-xs btn-primary py-1.5 px-3">Approve</button>
+                  <button disabled={depositActionId === d.id} onClick={() => handleDeposit(d.id, "reject")} className="text-xs border border-line rounded-lg px-3 py-1.5 text-red-400">Reject</button>
+                </div>
               )}
-            </button>
+            </div>
           ))}
         </div>
+      )}
 
-        {activeTab === "users" && (
-          <div className="card overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead><tr className="text-left text-gray-500 border-b border-[#2a2f3d]">
-                  <th className="px-4 py-3">ID</th><th className="px-4 py-3">User</th><th className="px-4 py-3">Balance</th><th className="px-4 py-3">Role</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Actions</th>
-                </tr></thead>
-                <tbody className="divide-y divide-[#2a2f3d]">
-                  {users.map((u) => (
-                    <tr key={u.id} className="hover:bg-white/[0.02]">
-                      <td className="px-4 py-3 text-gray-400">{u.id}</td>
-                      <td className="px-4 py-3"><p className="text-white font-medium">{u.username}</p><p className="text-xs text-gray-500">{u.email}</p></td>
-                      <td className="px-4 py-3 font-mono text-emerald-400">${u.balance?.toFixed(4)}</td>
-                      <td className="px-4 py-3">{u.is_admin ? <span className="badge bg-purple-500/20 text-purple-300 border border-purple-500/30">Admin</span> : <span className="badge bg-gray-500/20 text-gray-400 border border-gray-500/30">User</span>}</td>
-                      <td className="px-4 py-3">{u.is_active ? <span className="text-emerald-400">Active</span> : <span className="text-red-400">Inactive</span>}</td>
-                      <td className="px-4 py-3 flex gap-2">
-                        <button onClick={() => openAddBalance(u)} className="text-xs bg-blue-600/20 text-blue-300 border border-blue-500/30 px-2.5 py-1 rounded-lg">+ Balance</button>
-                        <button onClick={() => handleToggleUser(u)} className="text-xs bg-white/5 text-gray-300 border border-[#2a2f3d] px-2.5 py-1 rounded-lg">{u.is_active ? "Deactivate" : "Activate"}</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+      {activeTab === "settings" && (
+        <div className="space-y-4">
+          <div className="card p-5">
+            <h2 className="font-medium text-fg mb-2">\uD83D\uDCB0 Markup %</h2>
+            <div className="flex gap-3">
+              <input type="number" min="0" max="500" step="0.1" value={markupValue} onChange={(e) => setMarkupValue(e.target.value)} className="input-field flex-1" />
+              <button onClick={handleSetMarkup} disabled={markupSaving} className="btn-primary">{markupSaving ? "Saving..." : "Save"}</button>
             </div>
           </div>
-        )}
-
-        {activeTab === "orders" && (
-          <div className="card overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead><tr className="text-left text-gray-500 border-b border-[#2a2f3d]">
-                  <th className="px-4 py-3">ID</th><th className="px-4 py-3">User</th><th className="px-4 py-3">Phone</th><th className="px-4 py-3">Service</th><th className="px-4 py-3">User $</th><th className="px-4 py-3">Cost $</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">OTP</th><th className="px-4 py-3">Date</th>
-                </tr></thead>
-                <tbody className="divide-y divide-[#2a2f3d]">
-                  {orders.map((o) => (
-                    <tr key={o.id} className="hover:bg-white/[0.02]">
-                      <td className="px-4 py-3 text-gray-400">#{o.id}</td>
-                      <td className="px-4 py-3 text-white">{o.username || o.user_id}</td>
-                      <td className="px-4 py-3 font-mono text-white">{o.phone_number || "—"}</td>
-                      <td className="px-4 py-3 capitalize text-gray-300">{o.service}</td>
-                      <td className="px-4 py-3 font-mono text-emerald-400">${o.cost?.toFixed(4)}</td>
-                      <td className="px-4 py-3 font-mono text-gray-400">${(o.provider_cost || 0).toFixed(4)}</td>
-                      <td className="px-4 py-3"><span className={`badge border ${statusColor(o.status)}`}>{o.status}</span></td>
-                      <td className="px-4 py-3 font-mono text-blue-400">{o.otp_code || "—"}</td>
-                      <td className="px-4 py-3 text-gray-500 text-xs">{new Date(o.created_at).toLocaleString()}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          <div className="card p-5">
+            <h2 className="font-medium text-fg mb-2">\uD83D\uDCB3 Provider wallet</h2>
+            <p className="text-3xl font-bold text-fg">{providerBal !== null ? `$${providerBal.toFixed(4)}` : "\u2014"}</p>
+            <p className="text-xs text-muted mt-2">Completed {completedOrders} \u00b7 Profit ${profitEst.toFixed(2)}</p>
+          </div>
+          <div className="card p-5">
+            <h2 className="font-medium text-fg mb-2">\uD83D\uDD11 Fallback API key</h2>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <input type="text" value={fivesimKey} onChange={(e) => setFivesimKey(e.target.value)} onFocus={() => { if (fivesimKey.startsWith("\u2022")) setFivesimKey(""); }} className="input-field flex-1 font-mono text-sm" placeholder="Paste key" />
+              <button onClick={handleSaveFivesimKey} disabled={fivesimSaving} className="btn-primary">{fivesimSaving ? "Saving..." : "Save"}</button>
             </div>
           </div>
-        )}
-
-        {activeTab === "deposits" && (
-          <div className="card overflow-hidden">
-            <div className="px-4 py-3 border-b border-[#2a2f3d] flex justify-between items-center">
-              <h2 className="font-medium text-white">Deposit Requests</h2>
-              <span className="text-xs text-gray-500">{pendingDeposits} pending</span>
-            </div>
-            {deposits.length === 0 ? (
-              <p className="p-8 text-center text-gray-500 text-sm">No deposit requests yet.</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead><tr className="text-left text-gray-500 border-b border-[#2a2f3d]">
-                    <th className="px-4 py-3">ID</th><th className="px-4 py-3">User</th><th className="px-4 py-3">Amount</th><th className="px-4 py-3">Bank</th><th className="px-4 py-3">Slip note</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Date</th><th className="px-4 py-3">Actions</th>
-                  </tr></thead>
-                  <tbody className="divide-y divide-[#2a2f3d]">
-                    {deposits.map((d) => (
-                      <tr key={d.id} className="hover:bg-white/[0.02]">
-                        <td className="px-4 py-3 text-gray-400">#{d.id}</td>
-                        <td className="px-4 py-3 text-white">{d.username || d.user_id}</td>
-                        <td className="px-4 py-3 font-mono text-emerald-400">${Number(d.amount).toFixed(2)}</td>
-                        <td className="px-4 py-3 text-gray-300">{d.bank_name || d.bank_key}</td>
-                        <td className="px-4 py-3 text-gray-400 max-w-[200px] truncate" title={d.slip_note || ""}>{d.slip_note || "—"}</td>
-                        <td className="px-4 py-3"><span className={`badge border ${statusColor(d.status)}`}>{d.status}</span></td>
-                        <td className="px-4 py-3 text-gray-500 text-xs">{d.created_at ? new Date(d.created_at).toLocaleString() : "—"}</td>
-                        <td className="px-4 py-3">
-                          {d.status === "pending" ? (
-                            <div className="flex gap-2">
-                              <button onClick={() => handleDeposit(d.id, "approve")} disabled={depositActionId === d.id} className="text-xs bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 px-2.5 py-1 rounded-lg disabled:opacity-50">Approve</button>
-                              <button onClick={() => handleDeposit(d.id, "reject")} disabled={depositActionId === d.id} className="text-xs bg-red-600/20 text-red-300 border border-red-500/30 px-2.5 py-1 rounded-lg disabled:opacity-50">Reject</button>
-                            </div>
-                          ) : (<span className="text-xs text-gray-500">{d.admin_note || "—"}</span>)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+          <div className="card p-5 space-y-3">
+            <h2 className="font-medium text-fg">\uD83D\uDCAC Admin WhatsApp</h2>
+            <input type="text" value={wa1} onChange={(e) => setWa1(e.target.value)} className="input-field font-mono text-sm" placeholder="923001234567" />
+            <input type="text" value={wa2} onChange={(e) => setWa2(e.target.value)} className="input-field font-mono text-sm" placeholder="Second number optional" />
+            <button onClick={handleSaveWhatsApp} disabled={waSaving} className="btn-primary">{waSaving ? "Saving..." : "Save WhatsApp"}</button>
           </div>
-        )}
-
-        {activeTab === "settings" && (
-          <div className="space-y-6">
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="card p-6">
-                <h2 className="font-medium text-white mb-2">Fixed Profit Markup</h2>
-                <p className="text-xs text-gray-500 mb-4">Selling price = cost × (1 + markup%).</p>
-                <div className="flex gap-3">
-                  <input type="number" min="0" max="500" step="0.1" value={markupValue} onChange={(e) => setMarkupValue(e.target.value)} className="input-field flex-1" />
-                  <button onClick={handleSetMarkup} disabled={markupSaving} className="btn-primary px-6">{markupSaving ? "Saving..." : "Save"}</button>
-                </div>
-                <p className="text-xs text-gray-500 mt-3">Current: <span className="text-white">{settings.markup_percent || "50"}%</span></p>
+          <div className="card p-5 space-y-4">
+            <h2 className="font-medium text-fg">\uD83C\uDFE6 Banks</h2>
+            {BANK_FIELDS.map(({ key, label }) => (
+              <div key={key} className="space-y-2 border border-line rounded-xl p-3">
+                <p className="text-sm font-medium text-fg">{label}</p>
+                <input type="text" value={bankForm[`${key}_name`] || ""} onChange={(e) => setBankForm((prev) => ({ ...prev, [`${key}_name`]: e.target.value }))} className="input-field text-sm" placeholder={label} />
+                <textarea rows={3} value={bankForm[`${key}_details`] || ""} onChange={(e) => setBankForm((prev) => ({ ...prev, [`${key}_details`]: e.target.value }))} className="input-field text-sm font-mono" placeholder="Account details" />
               </div>
-              <div className="card p-6">
-                <h2 className="font-medium text-white mb-2">Provider Wallet</h2>
-                <p className="text-3xl font-bold text-white mt-4">{providerBal !== null ? `$${providerBal.toFixed(4)}` : "—"}</p>
-                <p className="text-xs text-gray-500 mt-2">Live 5sim balance</p>
-                <p className="text-xs text-gray-500 mt-4">Completed: {completedOrders} · Est. profit: ${profitEst.toFixed(2)}</p>
-              </div>
-            </div>
-
-            <div className="card p-6">
-              <h2 className="font-medium text-white mb-2">5sim API Key</h2>
-              <div className="flex gap-3">
-                <input type="text" value={fivesimKey} onChange={(e) => setFivesimKey(e.target.value)} onFocus={() => { if (fivesimKey.startsWith("••••")) setFivesimKey(""); }} className="input-field flex-1 font-mono text-sm" placeholder="Paste new 5sim API key" autoComplete="off" />
-                <button onClick={handleSaveFivesimKey} disabled={fivesimSaving} className="btn-primary px-6">{fivesimSaving ? "Saving..." : "Save Key"}</button>
-              </div>
-            </div>
-
-            <div className="card p-6">
-              <h2 className="font-medium text-white mb-2">Admin WhatsApp (Deposit notify)</h2>
-              <p className="text-xs text-gray-500 mb-4">User deposit submit ke baad in numbers pe WhatsApp open hoga. Country code ke sath: 923001234567</p>
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">WhatsApp 1</label>
-                  <input type="text" value={wa1} onChange={(e) => setWa1(e.target.value)} className="input-field w-full font-mono text-sm" placeholder="923001234567" />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">WhatsApp 2 (optional)</label>
-                  <input type="text" value={wa2} onChange={(e) => setWa2(e.target.value)} className="input-field w-full font-mono text-sm" placeholder="923009876543" />
-                </div>
-              </div>
-              <button onClick={handleSaveWhatsApp} disabled={waSaving} className="btn-primary mt-4 px-8">{waSaving ? "Saving..." : "Save WhatsApp Numbers"}</button>
-            </div>
-
-            <div className="card p-6">
-              <h2 className="font-medium text-white mb-2">Bank Details (Deposit)</h2>
-              <p className="text-xs text-gray-500 mb-5">Users see these on the Deposit page.</p>
-              <div className="space-y-6">
-                {BANK_FIELDS.map(({ key, label }) => (
-                  <div key={key} className="bg-[#12151c] rounded-xl p-4 border border-[#2a2f3d] space-y-3">
-                    <p className="text-sm font-medium text-white">{label}</p>
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">Display name</label>
-                      <input type="text" value={bankForm[`${key}_name`] || ""} onChange={(e) => setBankForm((prev) => ({ ...prev, [`${key}_name`]: e.target.value }))} className="input-field w-full text-sm" placeholder={label} />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">Account details</label>
-                      <textarea rows={3} value={bankForm[`${key}_details`] || ""} onChange={(e) => setBankForm((prev) => ({ ...prev, [`${key}_details`]: e.target.value }))} className="input-field w-full text-sm font-mono" placeholder={"Account Title: ...\nAccount Number: ..."} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <button onClick={handleSaveBanks} disabled={banksSaving} className="btn-primary mt-5 px-8">{banksSaving ? "Saving..." : "Save All Banks"}</button>
-            </div>
+            ))}
+            <button onClick={handleSaveBanks} disabled={banksSaving} className="btn-primary">{banksSaving ? "Saving..." : "Save banks"}</button>
           </div>
-        )}
-      </main>
+        </div>
+      )}
 
       {showAddBalance && selectedUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="card w-full max-w-md p-6">
-            <h3 className="text-lg font-semibold text-white mb-1">Add Balance</h3>
-            <p className="text-sm text-gray-400 mb-5">To: <span className="text-white">{selectedUser.username}</span></p>
-            <div className="space-y-4">
-              <input type="number" min="0.01" step="0.01" value={balanceAmount} onChange={(e) => setBalanceAmount(e.target.value)} className="input-field" placeholder="Amount USD" autoFocus />
-              <input type="text" value={balanceDesc} onChange={(e) => setBalanceDesc(e.target.value)} className="input-field" placeholder="Description" />
-            </div>
-            <div className="flex gap-3 mt-6">
-              <button onClick={() => setShowAddBalance(false)} className="flex-1 bg-[#12151c] border border-[#2a2f3d] text-gray-300 py-2.5 rounded-xl">Cancel</button>
-              <button onClick={handleAddBalance} disabled={submitting} className="flex-1 btn-primary">{submitting ? "Adding..." : "Add Balance"}</button>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/60">
+          <div className="card w-full max-w-md p-5">
+            <h3 className="text-lg font-semibold text-fg mb-1">Add balance</h3>
+            <p className="text-sm text-muted mb-4">To {selectedUser.username}</p>
+            <input type="number" min="0.01" step="0.01" value={balanceAmount} onChange={(e) => setBalanceAmount(e.target.value)} className="input-field mb-3" placeholder="Amount USD" />
+            <input type="text" value={balanceDesc} onChange={(e) => setBalanceDesc(e.target.value)} className="input-field" placeholder="Description" />
+            <div className="flex gap-3 mt-5">
+              <button onClick={() => setShowAddBalance(false)} className="flex-1 border border-line rounded-xl py-2.5">Cancel</button>
+              <button onClick={handleAddBalance} disabled={submitting} className="flex-1 btn-primary">{submitting ? "Adding..." : "Add"}</button>
             </div>
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function Stat({ emoji, label, value }: { emoji: string; label: string; value: string }) {
+  return (
+    <div className="card p-3">
+      <p className="text-[11px] text-muted">{emoji} {label}</p>
+      <p className="text-lg sm:text-xl font-bold text-fg mt-1 truncate">{value}</p>
     </div>
   );
 }
