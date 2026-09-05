@@ -10,6 +10,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+ENV = (os.getenv("ENV") or os.getenv("APP_ENV") or "production").lower()
+IS_PROD = ENV not in ("dev", "development", "local")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("[STARTUP] Creating tables if needed...")
@@ -24,11 +28,15 @@ async def lifespan(app: FastAPI):
     task.cancel()
     print("[SHUTDOWN] App stopping")
 
+
 app = FastAPI(
     title="Virtual OTP System",
     description="Multi-user Virtual Number System - Secure & Production Ready",
-    version="2.5.0",
-    lifespan=lifespan
+    version="2.5.1",
+    lifespan=lifespan,
+    docs_url=None if IS_PROD else "/docs",
+    redoc_url=None if IS_PROD else "/redoc",
+    openapi_url=None if IS_PROD else "/openapi.json",
 )
 
 cors_origins_raw = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
@@ -51,15 +59,16 @@ app.include_router(provider_admin.router, prefix="/api/admin", tags=["Admin"])
 app.include_router(deposits.router, prefix="/api/deposits", tags=["Deposits"])
 app.include_router(public.router, prefix="/api/public", tags=["Public"])
 
+
 @app.get("/")
 def root():
     return {
         "message": "Virtual OTP System API is running",
-        "docs": "/docs",
-        "version": "2.5.0",
-        "status": "healthy"
+        "version": "2.5.1",
+        "status": "healthy",
     }
+
 
 @app.get("/health")
 def health():
-    return {"status": "healthy", "version": "2.5.0"}
+    return {"status": "healthy", "version": "2.5.1"}

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 from typing import Optional
@@ -8,7 +8,8 @@ from app.models import User, DepositRequest
 from app.auth import get_current_user
 from app.settings_helper import get_setting
 from app.proof import proof_token, proof_path, slip_path, save_slip
-from app.fx import usd_from_pkr
+from app.fx import server_usd_from_pkr
+from app.rate_limit import limit_deposit
 
 router = APIRouter()
 
@@ -19,14 +20,19 @@ BANK_KEYS = [
     ("bank_national_2", "National Bank 2"),
 ]
 
+MIN_PKR = 100.0
+MAX_PKR = 500_000.0
+MAX_PENDING = 5
+
 
 class DepositCreate(BaseModel):
-    amount: Optional[float] = Field(None, gt=0, le=100000)
-    pkr_amount: Optional[float] = Field(None, gt=0, le=10000000)
-    usd_amount: Optional[float] = Field(None, gt=0, le=100000)
-    fx_rate: Optional[float] = Field(None, gt=0)
+    pkr_amount: float = Field(..., gt=0, le=10_000_000)
     bank_key: str
     slip_image: Optional[str] = None
+    # Client may still send these; they are IGNORED for credit calculation
+    amount: Optional[float] = None
+    usd_amount: Optional[float] = None
+    fx_rate: Optional[float] = None
     slip_note: Optional[str] = None
 
 
@@ -55,9 +61,12 @@ def list_banks(
 @router.post("/request")
 def create_deposit(
     data: DepositCreate,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    limit_deposit(request, current_user.id)
+
     valid_keys = {k for k, _ in BANK_KEYS}
     if data.bank_key not in valid_keys:
         raise HTTPException(status_code=400, detail="Invalid bank selected")
@@ -65,15 +74,31 @@ def create_deposit(
         raise HTTPException(status_code=400, detail="Upload the payment receipt first")
 
     pkr = float(data.pkr_amount or 0)
-    rate = float(data.fx_rate or 0)
-    usd = float(data.usd_amount or data.amount or 0)
-    if pkr > 0 and rate > 0:
-        usd = usd_from_pkr(pkr, rate)
+    if pkr < MIN_PKR:
+        raise HTTPException(status_code=400, detail=f"Minimum deposit is Rs {MIN_PKR:.0f}")
+    if pkr > MAX_PKR:
+        raise HTTPException(status_code=400, detail=f"Maximum deposit is Rs {MAX_PKR:.0f}")
+
+    pending_count = (
+        db.query(DepositRequest)
+        .filter(DepositRequest.user_id == current_user.id, DepositRequest.status == "pending")
+        .count()
+    )
+    if pending_count >= MAX_PENDING:
+        raise HTTPException(
+            status_code=400,
+            detail=f"You already have {pending_count} pending deposits. Wait for admin review.",
+        )
+
+    # CRITICAL: server FX only — client fx_rate / usd_amount ignored
+    conv = server_usd_from_pkr(pkr)
+    rate = float(conv["rate"])
+    usd = float(conv["usd"])
     if usd <= 0:
-        raise HTTPException(status_code=400, detail="Enter PKR amount")
+        raise HTTPException(status_code=400, detail="Could not convert amount. Try again.")
 
     bank_name = get_setting(db, f"{data.bank_key}_name", data.bank_key)
-    note = f"PKR {pkr:.2f} @ {rate:.4f} = ${usd:.4f} USDT" if pkr else (data.slip_note or "")
+    note = f"PKR {pkr:.2f} @ {rate:.4f} (server) = ${usd:.4f} USDT"
     dep = DepositRequest(
         user_id=current_user.id,
         amount=round(usd, 4),
@@ -105,8 +130,8 @@ def create_deposit(
         f"A PKR deposit request is ready.\n\n"
         f"User: {current_user.username}\n"
         f"Sent: Rs {pkr:.2f}\n"
-        f"Rate: {rate:.4f} PKR / USDT\n"
-        f"Requested credit: ${usd:.4f} USDT\n"
+        f"Server rate: {rate:.4f} PKR / USDT\n"
+        f"Credit (server): ${usd:.4f} USDT\n"
         f"Bank: {bank_name}\n"
         f"Request: #{dep.id}\n\n"
         f"Receipt card:\n{url}\n\n"

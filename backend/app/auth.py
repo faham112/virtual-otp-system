@@ -17,16 +17,20 @@ if not SECRET_KEY or SECRET_KEY == "supersecretkeychangeit" or len(SECRET_KEY) <
     raise ValueError("SECRET_KEY must be set in .env and at least 32 characters long")
 
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 1440))
+# Default 2 hours (was 24h) — override via ACCESS_TOKEN_EXPIRE_MINUTES
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 120))
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=12)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
+
 def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
+
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
@@ -38,6 +42,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode.update({"exp": expire, "iat": now})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
+
 
 async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     credentials_exception = HTTPException(
@@ -59,6 +64,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
     if not user.is_active:
         raise HTTPException(status_code=400, detail="User account is inactive")
     return user
+
 
 async def get_current_admin(current_user: User = Depends(get_current_user)):
     if not current_user.is_admin:

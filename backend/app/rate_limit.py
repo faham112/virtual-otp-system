@@ -22,3 +22,23 @@ def client_ip(request: Request) -> str:
     if fwd:
         return fwd.split(",")[0].strip()
     return request.client.host if request.client else "unknown"
+
+
+def limit_login(request: Request):
+    ip = client_ip(request)
+    rate_limit(f"login:{ip}", limit=10, window_sec=900)
+
+
+def limit_register(request: Request):
+    ip = client_ip(request)
+    rate_limit(f"register:{ip}", limit=5, window_sec=3600)
+
+
+def limit_deposit(request: Request, user_id: int):
+    ip = client_ip(request)
+    rate_limit(f"deposit:ip:{ip}", limit=8, window_sec=3600)
+    rate_limit(f"deposit:user:{user_id}", limit=5, window_sec=3600)
+
+
+def limit_buy(request: Request, user_id: int):
+    rate_limit(f"buy:user:{user_id}", limit=20, window_sec=60)

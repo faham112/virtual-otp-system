@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from datetime import timedelta
@@ -6,12 +6,14 @@ from app.database import get_db
 from app.models import User
 from app.schemas import UserCreate, UserOut, Token
 from app.auth import get_password_hash, verify_password, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
+from app.rate_limit import limit_login, limit_register
 
 router = APIRouter()
 
+
 @router.post("/register", response_model=UserOut)
-def register(user: UserCreate, db: Session = Depends(get_db)):
-    # Check duplicates
+def register(user: UserCreate, request: Request, db: Session = Depends(get_db)):
+    limit_register(request)
     if db.query(User).filter(User.username == user.username).first():
         raise HTTPException(status_code=400, detail="Username already registered")
     if db.query(User).filter(User.email == user.email).first():
@@ -23,15 +25,21 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
         hashed_password=get_password_hash(user.password),
         balance=0.0,
         is_admin=False,
-        is_active=True
+        is_active=True,
     )
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
     return db_user
 
+
 @router.post("/login", response_model=Token)
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+def login(
+    request: Request,
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db),
+):
+    limit_login(request)
     user = db.query(User).filter(User.username == form_data.username.lower().strip()).first()
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
@@ -45,6 +53,11 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={"sub": user.username},
-        expires_delta=access_token_expires
+        expires_delta=access_token_expires,
     )
-    return {"access_token": access_token, "token_type": "bearer", "is_admin": bool(user.is_admin), "username": user.username}
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "is_admin": bool(user.is_admin),
+        "username": user.username,
+    }
