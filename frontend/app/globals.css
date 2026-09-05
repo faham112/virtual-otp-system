@@ -89,6 +89,12 @@ body {
     min-width: 0;
   }
 
+  .panel {
+    background: var(--soft);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+  }
+
   .btn-primary {
     background: var(--primary);
     color: #ffffff;
@@ -137,6 +143,8 @@ body {
   .icon-btn {
     width: 2.5rem;
     height: 2.5rem;
+    min-width: 2.5rem;
+    min-height: 2.5rem;
     border-radius: 0.75rem;
     border: 1px solid var(--border);
     background: var(--card);
@@ -144,6 +152,13 @@ body {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  .icon-btn svg {
+    flex-shrink: 0;
+    display: block;
   }
 
   .app-header {
@@ -163,6 +178,22 @@ body {
   .app-nav {
     background: var(--aside);
     border-top: 1px solid var(--border);
+  }
+
+  .text-fg {
+    color: var(--text);
+  }
+
+  .text-muted {
+    color: var(--muted);
+  }
+
+  .border-line {
+    border-color: var(--border);
+  }
+
+  .bg-soft {
+    background: var(--soft);
   }
 }
 
@@ -203,11 +234,20 @@ html.theme-light .text-slate-100 {
   color: #1f2937 !important;
 }
 
+html.theme-light .text-gray-300,
+html.theme-light .text-slate-300 {
+  color: #374151 !important;
+}
+
 html.theme-light .text-gray-400,
 html.theme-light .text-gray-500,
 html.theme-light .text-slate-400,
 html.theme-light .text-slate-500 {
   color: #4b5563 !important;
+}
+
+html.theme-light .text-gray-600 {
+  color: #6b7280 !important;
 }
 
 html.theme-light header,
