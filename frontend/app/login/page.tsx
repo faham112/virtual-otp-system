@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import axios from "axios";
 import Cookies from "js-cookie";
+import GoogleButton from "../components/GoogleButton";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -45,6 +46,9 @@ export default function LoginPage() {
           <p className="text-muted text-sm mt-1">Sign in to your account</p>
         </div>
         {error && <div className="bg-red-500/10 border border-red-500/30 text-red-400 p-3 rounded-xl mb-5 text-sm">{error}</div>}
+        <div className="mb-5">
+          <GoogleButton onError={setError} />
+        </div>
         <form onSubmit={handleLogin} className="space-y-5">
           <div>
             <label className="block text-sm font-medium text-fg mb-1.5">Username</label>
