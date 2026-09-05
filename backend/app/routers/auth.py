@@ -18,6 +18,7 @@ from app.auth import (
 from app.rate_limit import limit_login, limit_register, rate_limit, client_ip
 from app.mail import send_email, smtp_ready
 from app.proof import SITE_URL
+from app.google_oauth import google_client_id, verify_google_token, find_or_create_google_user
 
 router = APIRouter()
 
@@ -109,6 +110,10 @@ class AdminRecovery(BaseModel):
         return v
 
 
+class GoogleToken(BaseModel):
+    id_token: str = Field(..., min_length=20)
+
+
 @router.post("/register", response_model=UserOut)
 def register(user: UserCreate, request: Request, db: Session = Depends(get_db)):
     limit_register(request)
@@ -146,6 +151,31 @@ def login(
         )
     if not user.is_active:
         raise HTTPException(status_code=400, detail="User account is inactive")
+    access_token = create_access_token(
+        data={"sub": user.username},
+        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
+    )
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "is_admin": bool(user.is_admin),
+        "username": user.username,
+    }
+
+
+@router.get("/google-config")
+def google_config(db: Session = Depends(get_db)):
+    return {"client_id": google_client_id(db)}
+
+
+@router.post("/google", response_model=Token)
+def google_login(body: GoogleToken, request: Request, db: Session = Depends(get_db)):
+    limit_login(request)
+    cid = google_client_id(db)
+    if not cid:
+        raise HTTPException(status_code=503, detail="Google login is not configured")
+    data = verify_google_token(body.id_token, cid)
+    user = find_or_create_google_user(db, data)
     access_token = create_access_token(
         data={"sub": user.username},
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
