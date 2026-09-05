@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import AppHeader from "../components/AppHeader";
 import axios from "axios";
 import Cookies from "js-cookie";
 
@@ -165,107 +164,75 @@ export default function DepositPage() {
   const selectedBank = banks.find((b) => b.key === bankKey);
 
   return (
-    <div className="min-h-screen">
-      <AppHeader title="Deposit" />
-      <main className="max-w-lg mx-auto px-4 py-8 space-y-6">
-        {error && (
-          <div className="bg-red-500/10 border border-red-500/30 text-red-400 p-3.5 rounded-xl text-sm">{error}</div>
-        )}
-        {success && (
-          <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 p-3.5 rounded-xl text-sm">
-            {success}
-          </div>
-        )}
-        {proofUrl && (
-          <div className="card p-4 text-sm">
-            <a href={proofUrl} target="_blank" className="text-blue-500 break-all">
-              {proofUrl}
-            </a>
-          </div>
-        )}
-
-        <div className="card p-6 space-y-5">
-          <h2 className="text-lg font-semibold text-fg">PKR deposit</h2>
-          <p className="text-sm text-muted">Send PKR to the bank below and upload your receipt.</p>
-          {banks.length === 0 ? (
-            <p className="text-amber-500 text-sm">No bank details yet. Ask the admin to add them in Settings.</p>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm text-muted mb-1.5">Amount sent (PKR)</label>
-                <input
-                  type="number"
-                  min="1"
-                  step="1"
-                  required
-                  value={pkr}
-                  onChange={(e) => setPkr(e.target.value)}
-                  className="input-field"
-                  placeholder="e.g. 1200"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-muted mb-1.5">Bank</label>
-                <select
-                  value={bankKey}
-                  onChange={(e) => setBankKey(e.target.value)}
-                  className="input-field"
-                  required
-                >
-                  {banks.map((b) => (
-                    <option key={b.key} value={b.key}>
-                      {b.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              {selectedBank?.details && (
-                <pre className="text-xs text-fg whitespace-pre-wrap panel p-3 font-mono">{selectedBank.details}</pre>
-              )}
-              <div>
-                <label className="block text-sm text-muted mb-1.5">Select receipt from gallery</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => onFile(e.target.files?.[0])}
-                  className="block w-full text-sm text-muted"
-                />
-                {slipPreview && (
-                  <img src={slipPreview} alt="Receipt" className="mt-3 w-full rounded-xl border border-line" />
-                )}
-              </div>
-              <button
-                type="submit"
-                disabled={loading || !bankKey || !slipData || pkrNum <= 0}
-                className="w-full btn-primary py-3"
-              >
-                {loading ? "Submitting..." : "Submit receipt and WhatsApp"}
-              </button>
-            </form>
-          )}
+    <main className="max-w-lg mx-auto px-4 py-8 space-y-6">
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/30 text-red-400 p-3.5 rounded-xl text-sm">{error}</div>
+      )}
+      {success && (
+        <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 p-3.5 rounded-xl text-sm">
+          {success}
         </div>
-
-        <div className="card p-6">
-          <h2 className="text-lg font-semibold text-fg mb-4">My requests</h2>
-          {myDeposits.length === 0 && <p className="text-sm text-muted">No deposit requests yet.</p>}
-          {myDeposits.map((d) => (
-            <div key={d.id} className="panel p-4 text-sm mb-3">
-              <div className="flex justify-between">
-                <div>
-                  <p className="text-fg font-medium">${Number(d.amount).toFixed(4)} USDT</p>
-                  <p className="text-xs text-muted">{d.slip_note}</p>
-                </div>
-                <span className="text-xs text-amber-500 capitalize">{d.status}</span>
-              </div>
-              {d.proof_url && (
-                <a href={d.proof_url} target="_blank" className="text-xs text-blue-500 mt-2 inline-block">
-                  Receipt card
-                </a>
+      )}
+      {proofUrl && (
+        <div className="card p-4 text-sm">
+          <a href={proofUrl} target="_blank" className="text-blue-500 break-all">
+            {proofUrl}
+          </a>
+        </div>
+      )}
+      <div className="card p-6 space-y-5">
+        <h2 className="text-lg font-semibold text-fg">PKR deposit</h2>
+        <p className="text-sm text-muted">Send PKR to the bank below and upload your receipt.</p>
+        {banks.length === 0 ? (
+          <p className="text-amber-500 text-sm">No bank details yet. Ask the admin to add them in Settings.</p>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm text-muted mb-1.5">Amount sent (PKR)</label>
+              <input type="number" min="1" step="1" required value={pkr} onChange={(e) => setPkr(e.target.value)} className="input-field" placeholder="e.g. 1200" />
+            </div>
+            <div>
+              <label className="block text-sm text-muted mb-1.5">Bank</label>
+              <select value={bankKey} onChange={(e) => setBankKey(e.target.value)} className="input-field" required>
+                {banks.map((b) => (
+                  <option key={b.key} value={b.key}>{b.name}</option>
+                ))}
+              </select>
+            </div>
+            {selectedBank?.details && (
+              <pre className="text-xs text-fg whitespace-pre-wrap panel p-3 font-mono">{selectedBank.details}</pre>
+            )}
+            <div>
+              <label className="block text-sm text-muted mb-1.5">Select receipt from gallery</label>
+              <input type="file" accept="image/*" onChange={(e) => onFile(e.target.files?.[0])} className="block w-full text-sm text-muted" />
+              {slipPreview && (
+                <img src={slipPreview} alt="Receipt" className="mt-3 w-full rounded-xl border border-line" />
               )}
             </div>
-          ))}
-        </div>
-      </main>
-    </div>
+            <button type="submit" disabled={loading || !bankKey || !slipData || pkrNum <= 0} className="w-full btn-primary py-3">
+              {loading ? "Submitting..." : "Submit receipt and WhatsApp"}
+            </button>
+          </form>
+        )}
+      </div>
+      <div className="card p-6">
+        <h2 className="text-lg font-semibold text-fg mb-4">My requests</h2>
+        {myDeposits.length === 0 && <p className="text-sm text-muted">No deposit requests yet.</p>}
+        {myDeposits.map((d) => (
+          <div key={d.id} className="panel p-4 text-sm mb-3">
+            <div className="flex justify-between">
+              <div>
+                <p className="text-fg font-medium">${Number(d.amount).toFixed(4)} USDT</p>
+                <p className="text-xs text-muted">{d.slip_note}</p>
+              </div>
+              <span className="text-xs text-amber-500 capitalize">{d.status}</span>
+            </div>
+            {d.proof_url && (
+              <a href={d.proof_url} target="_blank" className="text-xs text-blue-500 mt-2 inline-block">Receipt card</a>
+            )}
+          </div>
+        ))}
+      </div>
+    </main>
   );
 }
