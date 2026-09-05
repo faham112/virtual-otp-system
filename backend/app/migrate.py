@@ -24,6 +24,8 @@ def run_migrations():
         _add("users", "totp_enabled", "totp_enabled BOOLEAN DEFAULT 0")
         _add("users", "telegram_chat_id", "telegram_chat_id VARCHAR(64)")
         _add("users", "recovery_code_hash", "recovery_code_hash VARCHAR(255)")
+        _add("users", "reset_code_hash", "reset_code_hash VARCHAR(255)")
+        _add("users", "reset_code_expires", "reset_code_expires DATETIME")
         _add("orders", "provider", "provider VARCHAR(40) DEFAULT 'fivesim'")
         _add("orders", "provider_order_id", "provider_order_id VARCHAR(80)")
         _add("orders", "sms_count", "sms_count INTEGER DEFAULT 0")
