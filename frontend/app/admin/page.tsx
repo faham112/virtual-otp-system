@@ -4,6 +4,11 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
 import Cookies from "js-cookie";
+import {
+  Users, Smartphone, Wallet, Settings, Clock3, BadgeDollarSign,
+  Landmark, KeyRound, MessageCircle, CheckCircle2, XCircle,
+  Ban, CircleDot,
+} from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -15,18 +20,19 @@ const BANK_FIELDS = [
 ];
 
 const TABS = [
-  { id: "users", label: "Users", emoji: "\uD83D\uDC65" },
-  { id: "orders", label: "Orders", emoji: "\uD83D\uDCF1" },
-  { id: "deposits", label: "Deposits", emoji: "\uD83D\uDCB0" },
-  { id: "settings", label: "Settings", emoji: "\u2699\uFE0F" },
-] as const;
+  { id: "users" as const, label: "Users", Icon: Users },
+  { id: "orders" as const, label: "Orders", Icon: Smartphone },
+  { id: "deposits" as const, label: "Deposits", Icon: Wallet },
+  { id: "settings" as const, label: "Settings", Icon: Settings },
+];
 
-function statusEmoji(status: string) {
-  if (status === "completed" || status === "approved") return "\u2705";
-  if (status === "pending") return "\u23F3";
-  if (status === "cancelled") return "\uD83D\uDED1";
-  if (status === "failed" || status === "rejected") return "\u274C";
-  return "\u2022";
+function StatusIcon({ status }: { status: string }) {
+  const cls = "w-3.5 h-3.5 shrink-0";
+  if (status === "completed" || status === "approved") return <CheckCircle2 className={cls} />;
+  if (status === "pending") return <Clock3 className={cls} />;
+  if (status === "cancelled") return <Ban className={cls} />;
+  if (status === "failed" || status === "rejected") return <XCircle className={cls} />;
+  return <CircleDot className={cls} />;
 }
 
 export default function AdminPage() {
@@ -77,7 +83,7 @@ export default function AdminPage() {
       setSettings(settingsRes.data || {});
       const s = settingsRes.data || {};
       if (s.markup_percent) setMarkupValue(String(s.markup_percent));
-      setFivesimKey(s.fivesim_api_key ? "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" + String(s.fivesim_api_key).slice(-4) : "");
+      setFivesimKey(s.fivesim_api_key ? "••••••••" + String(s.fivesim_api_key).slice(-4) : "");
       const bf: Record<string, string> = {};
       BANK_FIELDS.forEach(({ key }) => {
         bf[`${key}_name`] = s[`${key}_name`] || "";
@@ -144,7 +150,7 @@ export default function AdminPage() {
 
   const handleSaveFivesimKey = async () => {
     const raw = fivesimKey.trim();
-    if (!raw || raw.startsWith("\u2022")) { alert("Paste a new API key"); return; }
+    if (!raw || raw.startsWith("•")) { alert("Paste a new API key"); return; }
     setFivesimSaving(true);
     try {
       await axios.post(`${API_URL}/api/admin/settings`, { fivesim_api_key: raw }, { headers: getHeaders() });
@@ -203,27 +209,30 @@ export default function AdminPage() {
   return (
     <div className="max-w-6xl mx-auto py-4 space-y-4">
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-        <Stat emoji="\uD83D\uDC65" label="Users" value={String(users.length)} />
-        <Stat emoji="\uD83D\uDCF1" label="Orders" value={String(orders.length)} />
-        <Stat emoji="\u23F3" label="Pending" value={String(pendingOrders)} />
-        <Stat emoji="\uD83D\uDCB3" label="Deposits" value={String(pendingDeposits)} />
-        <Stat emoji="\uD83D\uDCB5" label="Volume" value={`$${totalVolume.toFixed(2)}`} />
-        <Stat emoji="\uD83D\uDCB0" label="Profit" value={`$${profitEst.toFixed(2)}`} />
+        <Stat Icon={Users} label="Users" value={String(users.length)} />
+        <Stat Icon={Smartphone} label="Orders" value={String(orders.length)} />
+        <Stat Icon={Clock3} label="Pending" value={String(pendingOrders)} />
+        <Stat Icon={Wallet} label="Deposits" value={String(pendingDeposits)} />
+        <Stat Icon={BadgeDollarSign} label="Volume" value={`$${totalVolume.toFixed(2)}`} />
+        <Stat Icon={BadgeDollarSign} label="Profit" value={`$${profitEst.toFixed(2)}`} />
       </div>
 
       <div className="flex gap-1 overflow-x-auto pb-1">
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`shrink-0 px-3 py-2 rounded-xl text-sm font-medium ${
-              activeTab === tab.id ? "bg-card border border-line text-fg" : "text-muted"
-            }`}
-          >
-            {tab.emoji} {tab.label}
-            {tab.id === "deposits" && pendingDeposits > 0 ? ` ${pendingDeposits}` : ""}
-          </button>
-        ))}
+        {TABS.map((tab) => {
+          const Icon = tab.Icon;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`shrink-0 px-3 py-2 rounded-xl text-sm font-medium inline-flex items-center gap-1.5 ${
+                activeTab === tab.id ? "bg-card border border-line text-fg" : "text-muted"
+              }`}
+            >
+              <Icon className="w-4 h-4" /> {tab.label}
+              {tab.id === "deposits" && pendingDeposits > 0 ? ` ${pendingDeposits}` : ""}
+            </button>
+          );
+        })}
       </div>
 
       {activeTab === "users" && (
@@ -233,12 +242,12 @@ export default function AdminPage() {
               <div key={u.id} className="card p-4 space-y-2">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="font-semibold text-fg">{u.is_admin ? "\uD83D\uDEE1\uFE0F " : "\uD83D\uDC64 "}{u.username}</p>
+                    <p className="font-semibold text-fg">{u.username}</p>
                     <p className="text-xs text-muted break-all">{u.email}</p>
                   </div>
                   <p className="text-emerald-500 font-mono text-sm">${Number(u.balance || 0).toFixed(2)}</p>
                 </div>
-                <p className="text-xs text-muted">{u.is_active ? "\uD83D\uDFE2 Active" : "\uD83D\uDD34 Inactive"}</p>
+                <p className="text-xs text-muted">{u.is_active ? "Active" : "Inactive"}</p>
                 <div className="flex gap-2">
                   <button onClick={() => openAddBalance(u)} className="text-xs btn-primary py-1.5 px-3">+ Balance</button>
                   <button onClick={() => handleToggleUser(u)} className="text-xs border border-line rounded-lg px-3 py-1.5">{u.is_active ? "Deactivate" : "Activate"}</button>
@@ -281,11 +290,11 @@ export default function AdminPage() {
               <div key={o.id} className="card p-4 space-y-2">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-xs text-muted">#{o.id} \u00b7 {o.username || o.user_id}</p>
-                    <p className="font-semibold text-fg capitalize">\uD83D\uDCF1 {o.service}</p>
+                    <p className="text-xs text-muted">#{o.id} · {o.username || o.user_id}</p>
+                    <p className="font-semibold text-fg capitalize">{o.service}</p>
                     <p className="font-mono text-sm text-fg break-all">{o.phone_number || "No number"}</p>
                   </div>
-                  <p className={`text-xs font-medium ${statusClass(o.status)}`}>{statusEmoji(o.status)} {o.status}</p>
+                  <p className={`text-xs font-medium inline-flex items-center gap-1 ${statusClass(o.status)}`}><StatusIcon status={o.status} /> {o.status}</p>
                 </div>
                 <div className="flex justify-between text-xs text-muted">
                   <span>Sell ${Number(o.cost || 0).toFixed(4)}</span>
@@ -313,13 +322,13 @@ export default function AdminPage() {
                 <tr key={o.id} className="border-t border-line">
                   <td className="p-3 whitespace-nowrap text-muted">#{o.id}</td>
                   <td className="p-3 whitespace-nowrap text-fg">{o.username || o.user_id}</td>
-                  <td className="p-3 whitespace-nowrap font-mono text-fg">{o.phone_number || "\u2014"}</td>
+                  <td className="p-3 whitespace-nowrap font-mono text-fg">{o.phone_number || "—"}</td>
                   <td className="p-3 whitespace-nowrap capitalize">{o.service}</td>
                   <td className="p-3 whitespace-nowrap font-mono text-emerald-500">${Number(o.cost || 0).toFixed(4)}</td>
                   <td className="p-3 whitespace-nowrap font-mono text-muted">${Number(o.provider_cost || 0).toFixed(4)}</td>
-                  <td className={`p-3 whitespace-nowrap ${statusClass(o.status)}`}>{statusEmoji(o.status)} {o.status}</td>
-                  <td className="p-3 whitespace-nowrap font-mono">{o.otp_code || "\u2014"}</td>
-                  <td className="p-3 whitespace-nowrap text-xs text-muted">{o.created_at ? new Date(o.created_at).toLocaleString() : "\u2014"}</td>
+                  <td className={`p-3 whitespace-nowrap ${statusClass(o.status)}`}><span className="inline-flex items-center gap-1"><StatusIcon status={o.status} /> {o.status}</span></td>
+                  <td className="p-3 whitespace-nowrap font-mono">{o.otp_code || "—"}</td>
+                  <td className="p-3 whitespace-nowrap text-xs text-muted">{o.created_at ? new Date(o.created_at).toLocaleString() : "—"}</td>
                 </tr>
               ))}
             </tbody>
@@ -334,12 +343,12 @@ export default function AdminPage() {
             <div key={d.id} className="card p-4 space-y-2">
               <div className="flex justify-between gap-3">
                 <div>
-                  <p className="font-semibold text-fg">\uD83D\uDCB0 {d.username || d.user_id}</p>
+                  <p className="font-semibold text-fg">{d.username || d.user_id}</p>
                   <p className="text-xs text-muted break-words">{d.slip_note || d.bank_name}</p>
                 </div>
                 <p className="font-mono text-emerald-500">${Number(d.amount).toFixed(4)}</p>
               </div>
-              <p className={`text-xs ${statusClass(d.status)}`}>{statusEmoji(d.status)} {d.status}</p>
+              <p className={`text-xs inline-flex items-center gap-1 ${statusClass(d.status)}`}><StatusIcon status={d.status} /> {d.status}</p>
               {d.status === "pending" && (
                 <div className="flex gap-2">
                   <button disabled={depositActionId === d.id} onClick={() => handleDeposit(d.id, "approve")} className="text-xs btn-primary py-1.5 px-3">Approve</button>
@@ -354,32 +363,32 @@ export default function AdminPage() {
       {activeTab === "settings" && (
         <div className="space-y-4">
           <div className="card p-5">
-            <h2 className="font-medium text-fg mb-2">\uD83D\uDCB0 Markup %</h2>
+            <h2 className="font-medium text-fg mb-2 inline-flex items-center gap-2"><BadgeDollarSign className="w-4 h-4" /> Markup %</h2>
             <div className="flex gap-3">
               <input type="number" min="0" max="500" step="0.1" value={markupValue} onChange={(e) => setMarkupValue(e.target.value)} className="input-field flex-1" />
               <button onClick={handleSetMarkup} disabled={markupSaving} className="btn-primary">{markupSaving ? "Saving..." : "Save"}</button>
             </div>
           </div>
           <div className="card p-5">
-            <h2 className="font-medium text-fg mb-2">\uD83D\uDCB3 Provider wallet</h2>
-            <p className="text-3xl font-bold text-fg">{providerBal !== null ? `$${providerBal.toFixed(4)}` : "\u2014"}</p>
-            <p className="text-xs text-muted mt-2">Completed {completedOrders} \u00b7 Profit ${profitEst.toFixed(2)}</p>
+            <h2 className="font-medium text-fg mb-2 inline-flex items-center gap-2"><Wallet className="w-4 h-4" /> Provider wallet</h2>
+            <p className="text-3xl font-bold text-fg">{providerBal !== null ? `$${providerBal.toFixed(4)}` : "—"}</p>
+            <p className="text-xs text-muted mt-2">Completed {completedOrders} · Profit ${profitEst.toFixed(2)}</p>
           </div>
           <div className="card p-5">
-            <h2 className="font-medium text-fg mb-2">\uD83D\uDD11 Fallback API key</h2>
+            <h2 className="font-medium text-fg mb-2 inline-flex items-center gap-2"><KeyRound className="w-4 h-4" /> Fallback API key</h2>
             <div className="flex flex-col sm:flex-row gap-3">
-              <input type="text" value={fivesimKey} onChange={(e) => setFivesimKey(e.target.value)} onFocus={() => { if (fivesimKey.startsWith("\u2022")) setFivesimKey(""); }} className="input-field flex-1 font-mono text-sm" placeholder="Paste key" />
+              <input type="text" value={fivesimKey} onChange={(e) => setFivesimKey(e.target.value)} onFocus={() => { if (fivesimKey.startsWith("•")) setFivesimKey(""); }} className="input-field flex-1 font-mono text-sm" placeholder="Paste key" />
               <button onClick={handleSaveFivesimKey} disabled={fivesimSaving} className="btn-primary">{fivesimSaving ? "Saving..." : "Save"}</button>
             </div>
           </div>
           <div className="card p-5 space-y-3">
-            <h2 className="font-medium text-fg">\uD83D\uDCAC Admin WhatsApp</h2>
+            <h2 className="font-medium text-fg inline-flex items-center gap-2"><MessageCircle className="w-4 h-4" /> Admin WhatsApp</h2>
             <input type="text" value={wa1} onChange={(e) => setWa1(e.target.value)} className="input-field font-mono text-sm" placeholder="923001234567" />
             <input type="text" value={wa2} onChange={(e) => setWa2(e.target.value)} className="input-field font-mono text-sm" placeholder="Second number optional" />
             <button onClick={handleSaveWhatsApp} disabled={waSaving} className="btn-primary">{waSaving ? "Saving..." : "Save WhatsApp"}</button>
           </div>
           <div className="card p-5 space-y-4">
-            <h2 className="font-medium text-fg">\uD83C\uDFE6 Banks</h2>
+            <h2 className="font-medium text-fg inline-flex items-center gap-2"><Landmark className="w-4 h-4" /> Banks</h2>
             {BANK_FIELDS.map(({ key, label }) => (
               <div key={key} className="space-y-2 border border-line rounded-xl p-3">
                 <p className="text-sm font-medium text-fg">{label}</p>
@@ -410,10 +419,10 @@ export default function AdminPage() {
   );
 }
 
-function Stat({ emoji, label, value }: { emoji: string; label: string; value: string }) {
+function Stat({ Icon, label, value }: { Icon: any; label: string; value: string }) {
   return (
     <div className="card p-3">
-      <p className="text-[11px] text-muted">{emoji} {label}</p>
+      <p className="text-[11px] text-muted inline-flex items-center gap-1"><Icon className="w-3.5 h-3.5" /> {label}</p>
       <p className="text-lg sm:text-xl font-bold text-fg mt-1 truncate">{value}</p>
     </div>
   );
