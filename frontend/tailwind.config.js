@@ -14,6 +14,7 @@ module.exports = {
         muted: "var(--muted)",
         header: "var(--header)",
         aside: "var(--aside)",
+        soft: "var(--soft)",
       },
     },
   },
