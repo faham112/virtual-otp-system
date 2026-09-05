@@ -14,6 +14,7 @@ import {
   History,
   Shield,
   LogOut,
+  KeyRound,
 } from "lucide-react";
 import ThemeToggle from "./ThemeToggle";
 
@@ -99,6 +100,16 @@ export default function AppHeader({ title }: Props) {
           </Link>
         );
       })}
+      <Link
+        href="/account"
+        onClick={onPick}
+        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition ${
+          isActive("/account") ? "bg-blue-600/15 text-blue-500" : "text-muted hover:text-fg hover:bg-soft"
+        }`}
+      >
+        <KeyRound className="w-5 h-5" />
+        Account
+      </Link>
       {isAdmin && (
         <Link
           href="/admin"
@@ -139,17 +150,10 @@ export default function AppHeader({ title }: Props) {
 
       <header className="app-header">
         <div className="px-3 sm:px-4 py-3 flex items-center gap-2.5">
-          <button
-            type="button"
-            aria-label="Open menu"
-            onClick={() => setOpen(true)}
-            className="lg:hidden icon-btn shrink-0"
-          >
+          <button type="button" aria-label="Open menu" onClick={() => setOpen(true)} className="lg:hidden icon-btn shrink-0">
             <Menu className="w-5 h-5" />
           </button>
-          <h1 className="flex-1 min-w-0 text-left font-semibold text-fg truncate text-sm sm:text-base">
-            {title}
-          </h1>
+          <h1 className="flex-1 min-w-0 text-left font-semibold text-fg truncate text-sm sm:text-base">{title}</h1>
           <ThemeToggle />
           <div className="text-right shrink-0 min-w-[4.25rem]">
             <p className="text-[10px] leading-none text-muted mb-0.5">Balance</p>
@@ -177,11 +181,7 @@ export default function AppHeader({ title }: Props) {
               <NavLinks onPick={() => setOpen(false)} />
             </nav>
             <div className="p-3 border-t border-line">
-              <button
-                type="button"
-                onClick={logout}
-                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-400 hover:bg-red-500/10 border border-red-500/20"
-              >
+              <button type="button" onClick={logout} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-400 hover:bg-red-500/10 border border-red-500/20">
                 <LogOut className="w-4 h-4" />
                 Logout
               </button>
@@ -196,13 +196,7 @@ export default function AppHeader({ title }: Props) {
             const Icon = item.icon;
             const active = isActive(item.href);
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex flex-col items-center justify-center gap-1 py-2.5 text-[11px] ${
-                  active ? "text-blue-500" : "text-muted"
-                }`}
-              >
+              <Link key={item.href} href={item.href} className={`flex flex-col items-center justify-center gap-1 py-2.5 text-[11px] ${active ? "text-blue-500" : "text-muted"}`}>
                 <Icon className="w-5 h-5" />
                 {item.label}
               </Link>
