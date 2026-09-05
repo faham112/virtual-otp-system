@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import AppHeader from "../components/AppHeader";
-import { DashboardSkeleton, useMinLoading } from "../components/PageSkeleton";
 import axios from "axios";
 import Cookies from "js-cookie";
 
@@ -41,7 +40,6 @@ export default function DashboardPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
-  const showSkeleton = useMinLoading(loading, 3000);
 
   const getHeaders = () => {
     const token = Cookies.get("token");
@@ -126,8 +124,12 @@ export default function DashboardPage() {
     }
   };
 
-  if (showSkeleton) {
-    return <DashboardSkeleton />;
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-muted text-sm">Loading dashboard...</p>
+      </div>
+    );
   }
 
   return (
