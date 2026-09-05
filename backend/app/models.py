@@ -24,6 +24,7 @@ class User(Base):
     recovery_code_hash = Column(String(255), nullable=True)
     reset_code_hash = Column(String(255), nullable=True)
     reset_code_expires = Column(DateTime, nullable=True)
+    google_sub = Column(String(64), nullable=True, index=True)
     balance = Column(Float, default=0.0, nullable=False)
     is_admin = Column(Boolean, default=False, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
