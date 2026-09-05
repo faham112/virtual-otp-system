@@ -74,7 +74,9 @@ export default function DepositPage() {
       setBanks(list);
       setWhatsappNumbers(Array.isArray(res.data?.whatsapp_numbers) ? res.data.whatsapp_numbers : []);
       if (list.length && !bankKey) setBankKey(list[0].key);
-    } catch { setBanks([]); }
+    } catch {
+      setBanks([]);
+    }
   }, [token, bankKey]);
 
   const fetchMy = useCallback(async () => {
@@ -82,48 +84,82 @@ export default function DepositPage() {
     try {
       const res = await axios.get(`${API_URL}/api/deposits/my`, { headers: { Authorization: `Bearer ${token}` } });
       setMyDeposits(Array.isArray(res.data) ? res.data : []);
-    } catch { setMyDeposits([]); }
+    } catch {
+      setMyDeposits([]);
+    }
   }, [token]);
 
   useEffect(() => {
-    if (!token) { router.push("/login"); return; }
-    fetchBanks(); fetchMy(); fetchFx();
+    if (!token) {
+      router.push("/login");
+      return;
+    }
+    fetchBanks();
+    fetchMy();
+    fetchFx();
     const id = setInterval(fetchFx, 60000);
     return () => clearInterval(id);
   }, [token, router, fetchBanks, fetchMy, fetchFx]);
 
   const onFile = async (file?: File) => {
     if (!file) return;
-    if (!file.type.startsWith("image/")) { setError("Please select a receipt image"); return; }
+    if (!file.type.startsWith("image/")) {
+      setError("Please select a receipt image");
+      return;
+    }
     try {
       const data = await fileToJpeg(file);
-      setSlipData(data); setSlipPreview(data); setError("");
-    } catch { setError("Could not read that image. Try another photo."); }
+      setSlipData(data);
+      setSlipPreview(data);
+      setError("");
+    } catch {
+      setError("Could not read that image. Try another photo.");
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(""); setSuccess("");
-    if (!slipData) { setError("Select a receipt photo first"); return; }
-    if (pkrNum <= 0) { setError("Enter the PKR amount you sent"); return; }
+    setError("");
+    setSuccess("");
+    if (!slipData) {
+      setError("Select a receipt photo first");
+      return;
+    }
+    if (pkrNum <= 0) {
+      setError("Enter the PKR amount you sent");
+      return;
+    }
     setLoading(true);
     try {
-      const res = await axios.post(`${API_URL}/api/deposits/request`, {
-        pkr_amount: pkrNum, usd_amount: usd, fx_rate: rate, bank_key: bankKey, slip_image: slipData,
-      }, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await axios.post(
+        `${API_URL}/api/deposits/request`,
+        {
+          pkr_amount: pkrNum,
+          usd_amount: usd,
+          fx_rate: rate,
+          bank_key: bankKey,
+          slip_image: slipData,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
       const data = res.data || {};
       const url = data.proof_url || "";
       const msg = data.whatsapp_message || url;
       const numbers: string[] = data.whatsapp_numbers?.length ? data.whatsapp_numbers : whatsappNumbers;
       setProofUrl(url);
       setSuccess("Request saved. Opening WhatsApp with the receipt card.");
-      setPkr(""); setSlipData(""); setSlipPreview(""); fetchMy();
+      setPkr("");
+      setSlipData("");
+      setSlipPreview("");
+      fetchMy();
       if (numbers[0]) openWhatsApp(numbers[0], msg);
       if (numbers[1]) setTimeout(() => openWhatsApp(numbers[1], msg), 700);
     } catch (err: any) {
       const detail = err.response?.data?.detail;
       setError(typeof detail === "string" ? detail : "Deposit request failed");
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   };
 
   const selectedBank = banks.find((b) => b.key === bankKey);
@@ -132,39 +168,79 @@ export default function DepositPage() {
     <div className="min-h-screen">
       <AppHeader title="Deposit" />
       <main className="max-w-lg mx-auto px-4 py-8 space-y-6">
-        {error && <div className="bg-red-500/10 border border-red-500/30 text-red-400 p-3.5 rounded-xl text-sm">{error}</div>}
-        {success && <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 p-3.5 rounded-xl text-sm">{success}</div>}
-        {proofUrl && <div className="card p-4 text-sm"><a href={proofUrl} target="_blank" className="text-blue-500 break-all">{proofUrl}</a></div>}
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/30 text-red-400 p-3.5 rounded-xl text-sm">{error}</div>
+        )}
+        {success && (
+          <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 p-3.5 rounded-xl text-sm">
+            {success}
+          </div>
+        )}
+        {proofUrl && (
+          <div className="card p-4 text-sm">
+            <a href={proofUrl} target="_blank" className="text-blue-500 break-all">
+              {proofUrl}
+            </a>
+          </div>
+        )}
 
         <div className="card p-6 space-y-5">
           <h2 className="text-lg font-semibold text-fg">PKR deposit</h2>
-          <p className="text-sm text-muted">Send PKR to the bank below. Live rate converts it to USDT for your wallet request.</p>
+          <p className="text-sm text-muted">Send PKR to the bank below and upload your receipt.</p>
           {banks.length === 0 ? (
             <p className="text-amber-500 text-sm">No bank details yet. Ask the admin to add them in Settings.</p>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm text-muted mb-1.5">Amount sent (PKR)</label>
-                <input type="number" min="1" step="1" required value={pkr} onChange={(e) => setPkr(e.target.value)} className="input-field" placeholder="e.g. 1200" />
-              </div>
-              <div className="panel p-4">
-                <p className="text-xs text-muted">Live rate</p>
-                <p className="text-fg text-sm mt-1">{rate ? `1 USDT = ${rate.toFixed(2)} PKR` : "Loading rate..."}</p>
-                <p className="text-emerald-500 text-xl font-bold mt-2">{usd > 0 ? `You get $${usd.toFixed(4)} USDT` : "Enter PKR amount"}</p>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  required
+                  value={pkr}
+                  onChange={(e) => setPkr(e.target.value)}
+                  className="input-field"
+                  placeholder="e.g. 1200"
+                />
               </div>
               <div>
                 <label className="block text-sm text-muted mb-1.5">Bank</label>
-                <select value={bankKey} onChange={(e) => setBankKey(e.target.value)} className="input-field" required>
-                  {banks.map((b) => <option key={b.key} value={b.key}>{b.name}</option>)}
+                <select
+                  value={bankKey}
+                  onChange={(e) => setBankKey(e.target.value)}
+                  className="input-field"
+                  required
+                >
+                  {banks.map((b) => (
+                    <option key={b.key} value={b.key}>
+                      {b.name}
+                    </option>
+                  ))}
                 </select>
               </div>
-              {selectedBank?.details && <pre className="text-xs text-fg whitespace-pre-wrap panel p-3 font-mono">{selectedBank.details}</pre>}
+              {selectedBank?.details && (
+                <pre className="text-xs text-fg whitespace-pre-wrap panel p-3 font-mono">{selectedBank.details}</pre>
+              )}
               <div>
                 <label className="block text-sm text-muted mb-1.5">Select receipt from gallery</label>
-                <input type="file" accept="image/*" onChange={(e) => onFile(e.target.files?.[0])} className="block w-full text-sm text-muted" />
-                {slipPreview && <img src={slipPreview} alt="Receipt" className="mt-3 w-full rounded-xl border border-line" />}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => onFile(e.target.files?.[0])}
+                  className="block w-full text-sm text-muted"
+                />
+                {slipPreview && (
+                  <img src={slipPreview} alt="Receipt" className="mt-3 w-full rounded-xl border border-line" />
+                )}
               </div>
-              <button type="submit" disabled={loading || !bankKey || !slipData || usd <= 0} className="w-full btn-primary py-3">{loading ? "Submitting..." : "Submit receipt and WhatsApp"}</button>
+              <button
+                type="submit"
+                disabled={loading || !bankKey || !slipData || pkrNum <= 0}
+                className="w-full btn-primary py-3"
+              >
+                {loading ? "Submitting..." : "Submit receipt and WhatsApp"}
+              </button>
             </form>
           )}
         </div>
@@ -181,7 +257,11 @@ export default function DepositPage() {
                 </div>
                 <span className="text-xs text-amber-500 capitalize">{d.status}</span>
               </div>
-              {d.proof_url && <a href={d.proof_url} target="_blank" className="text-xs text-blue-500 mt-2 inline-block">Receipt card</a>}
+              {d.proof_url && (
+                <a href={d.proof_url} target="_blank" className="text-xs text-blue-500 mt-2 inline-block">
+                  Receipt card
+                </a>
+              )}
             </div>
           ))}
         </div>
