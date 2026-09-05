@@ -28,7 +28,9 @@ export default function ProviderKeys({ headers }: { headers: any }) {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   const save = async (id: string) => {
     const raw = (draft[id] || "").trim();
@@ -51,20 +53,20 @@ export default function ProviderKeys({ headers }: { headers: any }) {
 
   return (
     <div className="card p-6">
-      <h2 className="font-medium text-white mb-1">Provider API Keys</h2>
-      <p className="text-xs text-gray-500 mb-5">Har provider ki key alag save karo. Activate/deactivate baad mein manually.</p>
+      <h2 className="font-medium text-fg mb-1">Provider API Keys</h2>
+      <p className="text-xs text-muted mb-5">Har provider ki key alag save karo. Activate/deactivate baad mein manually.</p>
       <div className="space-y-4">
         {PROVIDERS.map((p) => (
-          <div key={p.id} className="bg-[#12151c] rounded-xl p-4 border border-[#2a2f3d]">
+          <div key={p.id} className="panel p-4">
             <div className="flex items-center justify-between gap-2 mb-2">
-              <p className="text-sm text-white font-medium">{p.label}</p>
-              <span className={`text-[10px] uppercase ${saved[p.id] ? "text-emerald-400" : "text-gray-500"}`}>
+              <p className="text-sm text-fg font-medium">{p.label}</p>
+              <span className={`text-[10px] uppercase ${saved[p.id] ? "text-emerald-500" : "text-muted"}`}>
                 {saved[p.id] ? "Saved" : "Empty"}
               </span>
             </div>
-            <p className="text-[11px] text-gray-500 mb-3">{p.hint}</p>
-            {saved[p.id] && <p className="text-[11px] font-mono text-gray-400 mb-2">{saved[p.id]}</p>}
-            <div className="flex gap-2">
+            <p className="text-[11px] text-muted mb-3">{p.hint}</p>
+            {saved[p.id] && <p className="text-[11px] font-mono text-muted mb-2">{saved[p.id]}</p>}
+            <div className="flex flex-col sm:flex-row gap-2">
               <input
                 type="text"
                 value={draft[p.id] || ""}
@@ -73,7 +75,7 @@ export default function ProviderKeys({ headers }: { headers: any }) {
                 placeholder={`Paste ${p.label} API key`}
                 autoComplete="off"
               />
-              <button type="button" disabled={busy === p.id} onClick={() => save(p.id)} className="btn-primary px-5">
+              <button type="button" disabled={busy === p.id} onClick={() => save(p.id)} className="btn-primary px-5 shrink-0">
                 {busy === p.id ? "Saving..." : "Save"}
               </button>
             </div>

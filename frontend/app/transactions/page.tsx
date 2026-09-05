@@ -39,20 +39,20 @@ export default function TransactionsPage() {
   const typeColor = (type: string) => {
     switch (type) {
       case "credit":
-        return "text-emerald-400";
+        return "text-emerald-500";
       case "refund":
-        return "text-blue-400";
+        return "text-blue-500";
       case "debit":
         return "text-red-400";
       default:
-        return "text-gray-400";
+        return "text-muted";
     }
   };
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-400 text-sm">Loading transactions...</p>
+        <p className="text-muted text-sm">Loading transactions...</p>
       </div>
     );
   }
@@ -63,24 +63,24 @@ export default function TransactionsPage() {
 
       <main className="max-w-4xl mx-auto px-4 py-8">
         <div className="card overflow-hidden">
-          <div className="px-6 py-4 border-b border-[#2a2f3d] flex justify-between">
-            <h2 className="font-medium text-white">Wallet History</h2>
-            <span className="text-xs text-gray-500">{txns.length} records</span>
+          <div className="px-5 sm:px-6 py-4 border-b border-line flex justify-between items-center gap-3">
+            <h2 className="font-medium text-fg">Wallet History</h2>
+            <span className="text-xs text-muted">{txns.length} records</span>
           </div>
 
           {txns.length === 0 ? (
-            <div className="p-12 text-center text-gray-400">No transactions yet</div>
+            <div className="p-12 text-center text-muted text-sm">No transactions yet</div>
           ) : (
-            <div className="divide-y divide-[#2a2f3d]">
+            <div className="divide-y divide-[color:var(--border)]">
               {txns.map((t) => (
-                <div key={t.id} className="px-6 py-4 flex justify-between items-start gap-4">
-                  <div>
-                    <p className="text-sm text-gray-200">{t.description || t.type}</p>
-                    <p className="text-xs text-gray-500 mt-1">
+                <div key={t.id} className="px-5 sm:px-6 py-4 flex justify-between items-start gap-4 hover:bg-soft/50 transition-colors">
+                  <div className="min-w-0">
+                    <p className="text-sm text-fg">{t.description || t.type}</p>
+                    <p className="text-xs text-muted mt-1">
                       {new Date(t.created_at).toLocaleString()} · {t.type}
                     </p>
                   </div>
-                  <p className={`font-mono font-semibold ${typeColor(t.type)}`}>
+                  <p className={`font-mono font-semibold shrink-0 ${typeColor(t.type)}`}>
                     {t.amount >= 0 ? "+" : ""}
                     ${Math.abs(t.amount).toFixed(4)}
                   </p>
