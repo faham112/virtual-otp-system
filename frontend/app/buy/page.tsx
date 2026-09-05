@@ -6,7 +6,6 @@ import Link from "next/link";
 import axios from "axios";
 import Cookies from "js-cookie";
 import { countryFlag, countryLabel, countryIso } from "../lib/countries";
-import { PageSkeleton, useMinLoading } from "../components/PageSkeleton";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -87,8 +86,6 @@ export default function BuyPage() {
   const [copied, setCopied] = useState<"phone" | "otp" | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [fxRate, setFxRate] = useState(0);
-  const [pageReady, setPageReady] = useState(false);
-  const showSkeleton = useMinLoading(!pageReady, 3000);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const sortedRows = useMemo(() => {
@@ -131,7 +128,6 @@ export default function BuyPage() {
       setStockRows([]);
     } finally {
       setStockLoading(false);
-      setPageReady(true);
     }
   }, [service]);
 
@@ -230,10 +226,6 @@ export default function BuyPage() {
   const tabOff = "bg-soft border-line text-fg hover:border-blue-500/30";
   const filterOn = "bg-emerald-600/15 border-emerald-500/40 text-emerald-600";
   const filterOff = "bg-soft border-line text-muted";
-
-  if (showSkeleton) {
-    return <PageSkeleton title="Loading buy" lines={6} />;
-  }
 
   return (
     <div className="min-h-screen">
