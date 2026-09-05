@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import AppHeader from "../components/AppHeader";
-import { PageSkeleton, useMinLoading } from "../components/PageSkeleton";
 import axios from "axios";
 import Cookies from "js-cookie";
 
@@ -13,7 +12,6 @@ export default function TransactionsPage() {
   const router = useRouter();
   const [txns, setTxns] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const showSkeleton = useMinLoading(loading, 3000);
 
   const fetchData = useCallback(async () => {
     const token = Cookies.get("token");
@@ -51,8 +49,12 @@ export default function TransactionsPage() {
     }
   };
 
-  if (showSkeleton) {
-    return <PageSkeleton title="Loading history" lines={6} />;
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-muted text-sm">Loading transactions...</p>
+      </div>
+    );
   }
 
   return (
