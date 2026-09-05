@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import AppHeader from "../components/AppHeader";
-import { PageSkeleton, useMinLoading } from "../components/PageSkeleton";
 import axios from "axios";
 import Cookies from "js-cookie";
 
@@ -51,12 +50,10 @@ export default function DepositPage() {
   const [slipPreview, setSlipPreview] = useState("");
   const [slipData, setSlipData] = useState("");
   const [loading, setLoading] = useState(false);
-  const [bootLoading, setBootLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [proofUrl, setProofUrl] = useState("");
   const [myDeposits, setMyDeposits] = useState<any[]>([]);
-  const showSkeleton = useMinLoading(bootLoading, 3000);
 
   const token = typeof window !== "undefined" ? Cookies.get("token") : null;
   const pkrNum = parseFloat(pkr) || 0;
@@ -97,10 +94,9 @@ export default function DepositPage() {
       router.push("/login");
       return;
     }
-    (async () => {
-      await Promise.all([fetchBanks(), fetchMy(), fetchFx()]);
-      setBootLoading(false);
-    })();
+    fetchBanks();
+    fetchMy();
+    fetchFx();
     const id = setInterval(fetchFx, 60000);
     return () => clearInterval(id);
   }, [token, router, fetchBanks, fetchMy, fetchFx]);
@@ -167,10 +163,6 @@ export default function DepositPage() {
   };
 
   const selectedBank = banks.find((b) => b.key === bankKey);
-
-  if (showSkeleton) {
-    return <PageSkeleton title="Loading deposit" lines={5} />;
-  }
 
   return (
     <div className="min-h-screen">
