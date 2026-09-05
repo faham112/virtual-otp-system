@@ -6,28 +6,32 @@
   --bg: #0f1117;
   --card: #1a1d27;
   --border: #2a2f3d;
+  --header: #0f1117;
+  --aside: #12151c;
+  --text: #e5e7eb;
+  --muted: #9ca3af;
   --primary: #3b82f6;
   --primary-hover: #2563eb;
   --success: #10b981;
   --warning: #f59e0b;
   --danger: #ef4444;
-  --text: #e5e7eb;
-  --muted: #9ca3af;
-  --header: #0f1117;
+  --soft: #161922;
 }
 
 html.theme-light {
   --bg: #f3f5f9;
   --card: #ffffff;
-  --border: #dbe1ea;
+  --border: #d7dee8;
+  --header: #ffffff;
+  --aside: #ffffff;
+  --text: #111827;
+  --muted: #4b5563;
   --primary: #2563eb;
   --primary-hover: #1d4ed8;
   --success: #059669;
   --warning: #d97706;
   --danger: #dc2626;
-  --text: #111827;
-  --muted: #4b5563;
-  --header: #ffffff;
+  --soft: #eef2f7;
 }
 
 html,
@@ -50,45 +54,95 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #151820;
+  background: var(--soft);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #3a4055;
+  background: var(--border);
   border-radius: 4px;
 }
 
 @layer components {
   .card {
-    @apply rounded-2xl shadow-xl border;
     background: var(--card);
-    border-color: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
   }
 
   .btn-primary {
-    @apply bg-blue-600 hover:bg-blue-500 text-white font-medium py-2.5 px-5 rounded-xl transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed;
+    background: var(--primary);
+    color: #ffffff;
+    font-weight: 500;
+    padding: 0.65rem 1.25rem;
+    border-radius: 0.75rem;
+  }
+
+  .btn-primary:hover {
+    background: var(--primary-hover);
+  }
+
+  .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 
   .btn-ghost {
-    @apply px-3 py-2 rounded-lg transition;
     color: var(--muted);
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
   }
 
   .input-field {
-    @apply w-full rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition border;
-    background: var(--bg);
-    border-color: var(--border);
+    width: 100%;
+    background: var(--soft);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    padding: 0.75rem 1rem;
     color: var(--text);
+  }
+
+  .input-field:focus {
+    outline: none;
+    border-color: var(--primary);
   }
 
   .badge {
-    @apply text-xs font-medium px-2.5 py-1 rounded-full;
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 0.25rem 0.625rem;
+    border-radius: 9999px;
   }
 
-  .theme-toggle {
-    border-color: var(--border);
-    color: var(--text);
+  .icon-btn {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 0.75rem;
+    border: 1px solid var(--border);
     background: var(--card);
+    color: var(--text);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .app-header {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    background: var(--header);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .app-aside {
+    background: var(--aside);
+    border-right: 1px solid var(--border);
+    color: var(--text);
+  }
+
+  .app-nav {
+    background: var(--aside);
+    border-top: 1px solid var(--border);
   }
 }
 
@@ -122,10 +176,14 @@ body.admin-shell header.z-20 {
   display: none !important;
 }
 
-html.theme-light .text-white,
-html.theme-light .text-gray-100,
-html.theme-light .text-slate-100 {
+html.theme-light .text-white {
   color: #111827 !important;
+}
+
+html.theme-light .text-gray-100,
+html.theme-light .text-gray-200,
+html.theme-light .text-slate-100 {
+  color: #1f2937 !important;
 }
 
 html.theme-light .text-gray-400,
@@ -133,17 +191,6 @@ html.theme-light .text-gray-500,
 html.theme-light .text-slate-400,
 html.theme-light .text-slate-500 {
   color: #4b5563 !important;
-}
-
-html.theme-light header,
-html.theme-light aside,
-html.theme-light nav.fixed {
-  background: #ffffff !important;
-  color: #111827;
-}
-
-html.theme-light body.admin-shell {
-  background: #f3f5f9;
 }
 
 @media (max-width: 640px) {
