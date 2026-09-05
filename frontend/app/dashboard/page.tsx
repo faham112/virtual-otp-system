@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import AppHeader from "../components/AppHeader";
 import axios from "axios";
 import Cookies from "js-cookie";
 
@@ -126,80 +125,77 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="py-16 text-center">
         <p className="text-muted text-sm">Loading dashboard...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen">
-      <AppHeader title="Dashboard" />
-      <main className="max-w-4xl mx-auto px-4 py-8">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-          <div>
-            <h1 className="text-2xl font-bold text-fg">Dashboard</h1>
-            <p className="text-muted text-sm mt-0.5">
-              Welcome, <span className="text-fg">{user?.username}</span>
-              {user?.is_admin && (
-                <span className="ml-2 badge bg-purple-500/20 text-purple-300 border border-purple-500/30">Admin</span>
-              )}
-            </p>
-          </div>
-          <div className="flex items-center gap-3 flex-wrap">
-            <button onClick={() => fetchData()} disabled={refreshing} className="btn-ghost text-sm">Refresh</button>
-            <Link href="/buy" className="btn-primary text-sm">Buy Number</Link>
-          </div>
+    <main className="max-w-4xl mx-auto px-4 py-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+        <div>
+          <h1 className="text-2xl font-bold text-fg">Dashboard</h1>
+          <p className="text-muted text-sm mt-0.5">
+            Welcome, <span className="text-fg">{user?.username}</span>
+            {user?.is_admin && (
+              <span className="ml-2 badge bg-purple-500/20 text-purple-300 border border-purple-500/30">Admin</span>
+            )}
+          </p>
         </div>
-        <div className="card overflow-hidden">
-          <div className="px-6 py-4 border-b border-line flex items-center justify-between">
-            <h2 className="font-medium text-fg">Recent Orders</h2>
-            <span className="text-xs text-muted">{orders.length} total</span>
+        <div className="flex items-center gap-3 flex-wrap">
+          <button onClick={() => fetchData()} disabled={refreshing} className="btn-ghost text-sm">Refresh</button>
+          <Link href="/buy" className="btn-primary text-sm">Buy Number</Link>
+        </div>
+      </div>
+      <div className="card overflow-hidden">
+        <div className="px-6 py-4 border-b border-line flex items-center justify-between">
+          <h2 className="font-medium text-fg">Recent Orders</h2>
+          <span className="text-xs text-muted">{orders.length} total</span>
+        </div>
+        {orders.length === 0 ? (
+          <div className="p-12 text-center">
+            <p className="text-muted mb-4">No orders yet</p>
+            <Link href="/buy" className="btn-primary inline-flex text-sm">Buy your first number</Link>
           </div>
-          {orders.length === 0 ? (
-            <div className="p-12 text-center">
-              <p className="text-muted mb-4">No orders yet</p>
-              <Link href="/buy" className="btn-primary inline-flex text-sm">Buy your first number</Link>
-            </div>
-          ) : (
-            <div className="divide-y divide-[color:var(--border)]">
-              {orders.map((order) => (
-                <div key={order.id} className="px-6 py-5 hover:bg-soft/40 transition">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-start gap-4">
-                      <div className="text-2xl mt-0.5">{COUNTRY_FLAGS[order.country] || "\uD83C\uDF10"}</div>
-                      <div>
-                        <p className="font-mono font-semibold text-fg text-lg tracking-wide">{order.phone_number || "-"}</p>
-                        <p className="text-sm text-muted mt-0.5 capitalize">{order.service}{" · "}{order.country}</p>
-                        <p className="text-xs text-muted mt-1">${order.cost?.toFixed(4)}{" · "}{new Date(order.created_at).toLocaleString()}</p>
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-end gap-2">
-                      <span className={`badge border ${statusColor(order.status)}`}>{order.status}</span>
-                      {order.otp_code && (
-                        <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl px-4 py-2">
-                          <p className="text-xs text-blue-300/70 mb-0.5">OTP Code</p>
-                          <div className="flex items-center gap-2">
-                            <p className="font-mono font-bold text-xl text-blue-400 tracking-widest">{order.otp_code}</p>
-                            <button onClick={() => copyOtp(order.id, order.otp_code)} className="text-xs text-blue-300 hover:text-fg border border-blue-500/30 px-2 py-0.5 rounded-lg">
-                              {copiedId === order.id ? "Copied" : "Copy"}
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                      {order.status === "pending" && (
-                        <button onClick={() => cancelOrder(order.id)} className="text-xs text-red-400 hover:text-red-300 mt-1">Cancel & Refund</button>
-                      )}
+        ) : (
+          <div className="divide-y divide-[color:var(--border)]">
+            {orders.map((order) => (
+              <div key={order.id} className="px-6 py-5 hover:bg-soft/40 transition">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-start gap-4">
+                    <div className="text-2xl mt-0.5">{COUNTRY_FLAGS[order.country] || "\uD83C\uDF10"}</div>
+                    <div>
+                      <p className="font-mono font-semibold text-fg text-lg tracking-wide">{order.phone_number || "-"}</p>
+                      <p className="text-sm text-muted mt-0.5 capitalize">{order.service}{" · "}{order.country}</p>
+                      <p className="text-xs text-muted mt-1">${order.cost?.toFixed(4)}{" · "}{new Date(order.created_at).toLocaleString()}</p>
                     </div>
                   </div>
-                  {order.sms_text && <p className="mt-3 text-xs text-muted bg-soft rounded-lg p-3 font-mono">{order.sms_text}</p>}
+                  <div className="flex flex-col items-end gap-2">
+                    <span className={`badge border ${statusColor(order.status)}`}>{order.status}</span>
+                    {order.otp_code && (
+                      <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl px-4 py-2">
+                        <p className="text-xs text-blue-300/70 mb-0.5">OTP Code</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-mono font-bold text-xl text-blue-400 tracking-widest">{order.otp_code}</p>
+                          <button onClick={() => copyOtp(order.id, order.otp_code)} className="text-xs text-blue-300 hover:text-fg border border-blue-500/30 px-2 py-0.5 rounded-lg">
+                            {copiedId === order.id ? "Copied" : "Copy"}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {order.status === "pending" && (
+                      <button onClick={() => cancelOrder(order.id)} className="text-xs text-red-400 hover:text-red-300 mt-1">Cancel & Refund</button>
+                    )}
+                  </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-        <p className="text-center text-xs text-muted mt-8">Pending orders auto-refresh every 8 seconds</p>
-      </main>
-    </div>
+                {order.sms_text && <p className="mt-3 text-xs text-muted bg-soft rounded-lg p-3 font-mono">{order.sms_text}</p>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      <p className="text-center text-xs text-muted mt-8">Pending orders auto-refresh every 8 seconds</p>
+    </main>
   );
 }
