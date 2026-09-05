@@ -31,6 +31,8 @@ export default function ThemeToggle() {
     applyTheme(next);
   };
 
+  const Icon = theme === "dark" ? Sun : Moon;
+
   return (
     <button
       type="button"
@@ -38,8 +40,9 @@ export default function ThemeToggle() {
       aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
       title={theme === "dark" ? "Light mode" : "Dark mode"}
       className="icon-btn"
+      aria-pressed={theme === "light"}
     >
-      {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+      <Icon aria-hidden="true" size={16} strokeWidth={2.2} />
     </button>
   );
 }

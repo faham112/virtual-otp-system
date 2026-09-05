@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import ThemeToggle from "./components/ThemeToggle";
 
 export const metadata: Metadata = {
   title: "Virtual OTP System",
@@ -23,7 +24,12 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        <div className="public-theme-toggle fixed right-4 top-4 z-[60]">
+          <ThemeToggle />
+        </div>
+        {children}
+      </body>
     </html>
   );
 }
