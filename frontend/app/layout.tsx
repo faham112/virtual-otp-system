@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import AppChrome from "./components/AppChrome";
 
 export const metadata: Metadata = {
   title: "Virtual OTP System",
@@ -23,7 +24,9 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        <AppChrome>{children}</AppChrome>
+      </body>
     </html>
   );
 }
