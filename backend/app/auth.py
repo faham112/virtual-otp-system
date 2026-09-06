@@ -17,8 +17,7 @@ if not SECRET_KEY or SECRET_KEY == "supersecretkeychangeit" or len(SECRET_KEY) <
     raise ValueError("SECRET_KEY must be set in .env and at least 32 characters long")
 
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
-# Default 2 hours (was 24h) — override via ACCESS_TOKEN_EXPIRE_MINUTES
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 120))
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 43200))
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=12)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
@@ -35,13 +34,16 @@ def get_password_hash(password: str) -> str:
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
     now = datetime.now(timezone.utc)
-    if expires_delta:
-        expire = now + expires_delta
-    else:
-        expire = now + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    expire = now + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     to_encode.update({"exp": expire, "iat": now})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+
+def token_for_user(user: User) -> str:
+    return create_access_token(
+        data={"sub": user.username, "sv": int(getattr(user, "session_ver", 0) or 0)},
+        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
+    )
 
 
 async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
@@ -53,6 +55,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
+        sv = int(payload.get("sv") or 0)
         if username is None:
             raise credentials_exception
     except JWTError:
@@ -63,6 +66,9 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
         raise credentials_exception
     if not user.is_active:
         raise HTTPException(status_code=400, detail="User account is inactive")
+    current_sv = int(getattr(user, "session_ver", 0) or 0)
+    if sv != current_sv:
+        raise credentials_exception
     return user
 
 
