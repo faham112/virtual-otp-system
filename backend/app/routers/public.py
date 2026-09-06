@@ -7,6 +7,7 @@ from app.models import User, Order, Setting, DepositRequest
 from app.schemas import ALLOWED_COUNTRIES, ALLOWED_SERVICES
 from app.proof import proof_token, token_ok, proof_path, slip_path, load_slip
 from app.fx import pkr_per_usd
+from app.settings_helper import get_setting
 
 router = APIRouter()
 
@@ -60,6 +61,16 @@ def public_stats():
 @router.get("/fx")
 async def public_fx():
     return await pkr_per_usd()
+
+
+@router.get("/contact")
+def public_contact():
+    db: Session = SessionLocal()
+    try:
+        wa = (get_setting(db, "admin_whatsapp", "") or get_setting(db, "admin_whatsapp_2", "") or "").strip()
+        return {"whatsapp": wa}
+    finally:
+        db.close()
 
 
 def _deposit_payload(deposit_id: int, token: str):
