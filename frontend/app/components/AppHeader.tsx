@@ -32,10 +32,10 @@ const NAV = [
   { href: "/buy", label: "Buy", icon: Smartphone },
   { href: "/deposit", label: "Deposit", icon: Wallet },
   { href: "/transactions", label: "History", icon: History },
+  { href: "/account", label: "Account", icon: KeyRound },
 ];
 
-const EXTRA = [
-  { href: "/account", label: "Account", icon: KeyRound },
+const PAGES = [
   { href: "/terms", label: "Terms", icon: FileText },
   { href: "/privacy", label: "Privacy", icon: ShieldCheck },
   { href: "/faq", label: "FAQ", icon: CircleHelp },
@@ -88,22 +88,17 @@ export default function AppHeader({ title }: Props) {
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
 
+  const linkCls = (href: string) =>
+    `flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition ${
+      isActive(href) ? "bg-blue-600/15 text-blue-500" : "text-muted hover:text-fg hover:bg-soft"
+    }`;
+
   const NavLinks = ({ onPick }: { onPick?: () => void }) => (
     <>
       {NAV.map((item) => {
         const Icon = item.icon;
-        const active = isActive(item.href);
         return (
-          <Link key={item.href} href={item.href} onClick={onPick} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition ${active ? "bg-blue-600/15 text-blue-500" : "text-muted hover:text-fg hover:bg-soft"}`}>
-            <Icon className="w-5 h-5" />
-            {item.label}
-          </Link>
-        );
-      })}
-      {EXTRA.map((item) => {
-        const Icon = item.icon;
-        return (
-          <Link key={item.href} href={item.href} onClick={onPick} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition ${isActive(item.href) ? "bg-blue-600/15 text-blue-500" : "text-muted hover:text-fg hover:bg-soft"}`}>
+          <Link key={item.href} href={item.href} onClick={onPick} className={linkCls(item.href)}>
             <Icon className="w-5 h-5" />
             {item.label}
           </Link>
@@ -116,6 +111,20 @@ export default function AppHeader({ title }: Props) {
         </Link>
       )}
     </>
+  );
+
+  const PageLinks = ({ onPick }: { onPick?: () => void }) => (
+    <div className="space-y-0.5">
+      {PAGES.map((item) => {
+        const Icon = item.icon;
+        return (
+          <Link key={item.href} href={item.href} onClick={onPick} className={linkCls(item.href)}>
+            <Icon className="w-4 h-4" />
+            {item.label}
+          </Link>
+        );
+      })}
+    </div>
   );
 
   return (
@@ -133,6 +142,7 @@ export default function AppHeader({ title }: Props) {
             <LogOut className="w-4 h-4" />
             Logout
           </button>
+          <PageLinks />
           <p className="px-3 pt-1 text-[10px] text-muted">© {new Date().getFullYear()} · Coded by Faham Baloch</p>
         </div>
       </aside>
@@ -169,11 +179,12 @@ export default function AppHeader({ title }: Props) {
             <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
               <NavLinks onPick={() => setOpen(false)} />
             </nav>
-            <div className="p-3 border-t border-line">
+            <div className="p-3 border-t border-line space-y-2">
               <button type="button" onClick={logout} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-400 hover:bg-red-500/10 border border-red-500/20">
                 <LogOut className="w-4 h-4" />
                 Logout
               </button>
+              <PageLinks onPick={() => setOpen(false)} />
             </div>
           </div>
         </div>
@@ -181,7 +192,7 @@ export default function AppHeader({ title }: Props) {
 
       <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 app-nav pb-[env(safe-area-inset-bottom)]">
         <div className="grid grid-cols-4">
-          {NAV.map((item) => {
+          {NAV.slice(0, 4).map((item) => {
             const Icon = item.icon;
             const active = isActive(item.href);
             return (
