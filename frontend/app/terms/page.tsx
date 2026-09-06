@@ -1,14 +1,9 @@
 import Link from "next/link";
+import LegalFrame from "../components/LegalFrame";
 
 export default function TermsPage() {
   return (
-    <main className="max-w-3xl mx-auto px-4 py-10 space-y-6">
-      <div>
-        <p className="text-xs text-muted uppercase tracking-wide">Legal</p>
-        <h1 className="text-3xl font-bold text-fg mt-1">Terms and Conditions</h1>
-        <p className="text-sm text-muted mt-2">Last updated: 6 September 2026</p>
-      </div>
-
+    <LegalFrame current="/terms" title="Terms and Conditions" updated="6 September 2026">
       <div className="card p-5 sm:p-7 space-y-6 text-sm leading-relaxed text-muted">
         <section>
           <h2 className="text-fg font-semibold text-base mb-2">1. No refund policy</h2>
@@ -19,7 +14,6 @@ export default function TermsPage() {
             may be returned as site credit — not as a bank or USDT refund.
           </p>
         </section>
-
         <section>
           <h2 className="text-fg font-semibold text-base mb-2">2. Better quality OTPs work more reliably</h2>
           <p>
@@ -28,7 +22,6 @@ export default function TermsPage() {
             chance of delay or failure. Price does not guarantee a code, but quality stock is the recommended option.
           </p>
         </section>
-
         <section>
           <h2 className="text-fg font-semibold text-base mb-2">3. Fair use of the website</h2>
           <ul className="list-disc pl-5 space-y-1">
@@ -39,7 +32,6 @@ export default function TermsPage() {
             <li>Deposits must match the amount and receipt you submit. Fake slips can ban the account.</li>
           </ul>
         </section>
-
         <section>
           <h2 className="text-fg font-semibold text-base mb-2">4. Website errors and our responsibility</h2>
           <p>
@@ -49,7 +41,6 @@ export default function TermsPage() {
             damage outside this website.
           </p>
         </section>
-
         <section>
           <h2 className="text-fg font-semibold text-base mb-2">5. If an OTP does not work, that is usually not our fault</h2>
           <p>
@@ -59,7 +50,6 @@ export default function TermsPage() {
             or another country. We do not refund because Facebook rejected the number.
           </p>
         </section>
-
         <section>
           <h2 className="text-fg font-semibold text-base mb-2">Acceptance</h2>
           <p>
@@ -68,11 +58,10 @@ export default function TermsPage() {
           </p>
         </section>
       </div>
-
-      <div className="flex gap-3">
+      <div className="flex gap-3 mt-5">
         <Link href="/register" className="btn-primary text-sm">I understand — create account</Link>
-        <Link href="/" className="btn-ghost text-sm">Back home</Link>
+        <Link href="/legal" className="btn-ghost text-sm">All pages</Link>
       </div>
-    </main>
+    </LegalFrame>
   );
 }
