@@ -1,3 +1,5 @@
+import LegalFrame from "../components/LegalFrame";
+
 export default function FaqPage() {
   const rows = [
     ["How do I buy a number?", "Deposit PKR, wait for admin approval, then open Buy. Keep Better quality selected for a higher chance the OTP arrives."],
@@ -7,8 +9,7 @@ export default function FaqPage() {
     ["I forgot my password.", "Use Forgot password and the code sent to your registered email."],
   ];
   return (
-    <main className="max-w-3xl mx-auto px-4 py-10 space-y-6">
-      <h1 className="text-3xl font-bold text-fg">FAQ</h1>
+    <LegalFrame current="/faq" title="FAQ">
       <div className="space-y-3">
         {rows.map(([q, a]) => (
           <div key={q} className="card p-5">
@@ -17,6 +18,6 @@ export default function FaqPage() {
           </div>
         ))}
       </div>
-    </main>
+    </LegalFrame>
   );
 }
