@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import axios from "axios";
+import LegalFrame from "../components/LegalFrame";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -34,11 +35,8 @@ export default function ContactPage() {
   };
 
   return (
-    <main className="max-w-lg mx-auto px-4 py-10 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-fg">Contact us</h1>
-        <p className="text-sm text-muted mt-2">Write your query and submit. WhatsApp opens with the message ready to send.</p>
-      </div>
+    <LegalFrame current="/contact" title="Contact us">
+      <p className="text-sm text-muted mb-4">Write your query and submit. WhatsApp opens with the message ready to send.</p>
       <form onSubmit={submit} className="card p-5 sm:p-6 space-y-4">
         <div>
           <label className="block text-sm text-muted mb-1.5">Name</label>
@@ -55,6 +53,6 @@ export default function ContactPage() {
         {err && <p className="text-sm text-red-400">{err}</p>}
         <button type="submit" className="btn-primary w-full py-3">Submit on WhatsApp</button>
       </form>
-    </main>
+    </LegalFrame>
   );
 }
