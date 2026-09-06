@@ -4,8 +4,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import axios from "axios";
-import Cookies from "js-cookie";
 import GoogleButton from "../components/GoogleButton";
+import AuthGate from "../components/AuthGate";
+import { setToken } from "../lib/session";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -28,7 +29,7 @@ export default function LoginPage() {
       const res = await axios.post(`${API_URL}/api/auth/login`, params, {
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
       });
-      Cookies.set("token", res.data.access_token, { expires: 7, sameSite: "lax" });
+      setToken(res.data.access_token);
       router.push(res.data.is_admin ? "/admin" : "/dashboard");
     } catch (err: any) {
       const detail = err.response?.data?.detail;
@@ -40,6 +41,7 @@ export default function LoginPage() {
 
   return (
     <div className="flex-1 flex items-center justify-center p-4 py-12">
+      <AuthGate />
       <div className="max-w-md w-full card p-6 sm:p-8">
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold text-fg">Welcome back</h1>
