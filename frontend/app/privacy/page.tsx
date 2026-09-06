@@ -1,11 +1,8 @@
+import LegalFrame from "../components/LegalFrame";
+
 export default function PrivacyPage() {
   return (
-    <main className="max-w-3xl mx-auto px-4 py-10 space-y-6">
-      <div>
-        <p className="text-xs text-muted uppercase tracking-wide">Legal</p>
-        <h1 className="text-3xl font-bold text-fg mt-1">Privacy Policy</h1>
-        <p className="text-sm text-muted mt-2">Last updated: 6 September 2026</p>
-      </div>
+    <LegalFrame current="/privacy" title="Privacy Policy" updated="6 September 2026">
       <div className="card p-5 sm:p-7 space-y-5 text-sm leading-relaxed text-muted">
         <section>
           <h2 className="text-fg font-semibold text-base mb-2">What we collect</h2>
@@ -32,6 +29,6 @@ export default function PrivacyPage() {
           <p>Questions about this policy can be sent from the Contact page.</p>
         </section>
       </div>
-    </main>
+    </LegalFrame>
   );
 }
