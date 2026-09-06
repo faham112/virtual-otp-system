@@ -16,6 +16,10 @@ import {
   Shield,
   LogOut,
   KeyRound,
+  FileText,
+  ShieldCheck,
+  MessageCircle,
+  CircleHelp,
 } from "lucide-react";
 import ThemeToggle from "./ThemeToggle";
 
@@ -28,6 +32,14 @@ const NAV = [
   { href: "/buy", label: "Buy", icon: Smartphone },
   { href: "/deposit", label: "Deposit", icon: Wallet },
   { href: "/transactions", label: "History", icon: History },
+];
+
+const EXTRA = [
+  { href: "/account", label: "Account", icon: KeyRound },
+  { href: "/terms", label: "Terms", icon: FileText },
+  { href: "/privacy", label: "Privacy", icon: ShieldCheck },
+  { href: "/faq", label: "FAQ", icon: CircleHelp },
+  { href: "/contact", label: "Contact", icon: MessageCircle },
 ];
 
 function formatPkr(n: number): string {
@@ -88,10 +100,15 @@ export default function AppHeader({ title }: Props) {
           </Link>
         );
       })}
-      <Link href="/account" onClick={onPick} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition ${isActive("/account") ? "bg-blue-600/15 text-blue-500" : "text-muted hover:text-fg hover:bg-soft"}`}>
-        <KeyRound className="w-5 h-5" />
-        Account
-      </Link>
+      {EXTRA.map((item) => {
+        const Icon = item.icon;
+        return (
+          <Link key={item.href} href={item.href} onClick={onPick} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition ${isActive(item.href) ? "bg-blue-600/15 text-blue-500" : "text-muted hover:text-fg hover:bg-soft"}`}>
+            <Icon className="w-5 h-5" />
+            {item.label}
+          </Link>
+        );
+      })}
       {isAdmin && (
         <Link href="/admin" onClick={onPick} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition ${isActive("/admin") ? "bg-violet-600/15 text-violet-500" : "text-violet-500"}`}>
           <Shield className="w-5 h-5" />
