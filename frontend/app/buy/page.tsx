@@ -15,7 +15,7 @@ const SERVICES = [
   { value: "telegram", label: "Telegram", icon: "T", color: "bg-[#229ED9]" },
   { value: "google", label: "Google", icon: "G", color: "bg-[#EA4335]" },
   { value: "instagram", label: "Instagram", icon: "Ig", color: "bg-gradient-to-br from-[#f09433] via-[#e6683c] to-[#bc1888]" },
-  { value: "twitter", label: "Twitter / X", icon: "𝕏", color: "bg-zinc-900" },
+  { value: "twitter", label: "Twitter / X", icon: "Ⓥ", color: "bg-zinc-900" },
   { value: "tiktok", label: "TikTok", icon: "♪", color: "bg-black" },
   { value: "discord", label: "Discord", icon: "D", color: "bg-[#5865F2]" },
   { value: "microsoft", label: "Microsoft", icon: "M", color: "bg-[#00A4EF]" },
@@ -81,7 +81,7 @@ export default function BuyPage() {
   const [quote, setQuote] = useState<any>(null);
   const [stockRows, setStockRows] = useState<any[]>([]);
   const [search, setSearch] = useState("");
-  const [quality, setQuality] = useState<"cheaper" | "balanced" | "quality">("cheaper");
+  const [quality, setQuality] = useState<"cheaper" | "balanced" | "quality">("quality");
   const [hideOos, setHideOos] = useState(true);
   const [copied, setCopied] = useState<"phone" | "otp" | null>(null);
   const [cancelling, setCancelling] = useState(false);
@@ -289,7 +289,7 @@ export default function BuyPage() {
                 <button type="button" onClick={() => { setCountry("any"); setError(""); }}
                   className={`w-full flex items-center gap-3 px-4 py-3 mb-2 rounded-xl border text-sm text-left ${country === "any" ? tabOn : tabOff}`}>
                   <span className="text-xl shrink-0">🌐</span>
-                  <span className="flex-1">Any (Cheapest in stock)</span>
+                  <span className="flex-1">Any (Best quality first)</span>
                   <span className={`text-xs font-semibold ${cheapestLive ? "text-emerald-500" : "text-amber-500"}`}>
                     {stockLoading ? "..." : cheapestLive ? priceLabel(rowPrice(cheapestLive)) : "Out of stock"}
                   </span>
