@@ -4,7 +4,18 @@ import { usePathname } from "next/navigation";
 import PublicHeader from "./PublicHeader";
 import SiteFooter from "./SiteFooter";
 
-const APP_PREFIXES = ["/dashboard", "/buy", "/deposit", "/transactions", "/account", "/admin"];
+const APP_PREFIXES = [
+  "/dashboard",
+  "/buy",
+  "/deposit",
+  "/transactions",
+  "/account",
+  "/admin",
+  "/terms",
+  "/privacy",
+  "/contact",
+  "/faq",
+];
 
 export default function AppChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || "/";
