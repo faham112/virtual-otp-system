@@ -11,6 +11,7 @@ const APP_PREFIXES = [
   "/transactions",
   "/account",
   "/admin",
+  "/legal",
   "/terms",
   "/privacy",
   "/contact",
