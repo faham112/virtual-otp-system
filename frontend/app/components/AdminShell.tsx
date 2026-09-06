@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import axios from "axios";
 import Cookies from "js-cookie";
+import { logoutSession } from "../lib/session";
 import {
   Menu,
   X,
@@ -50,8 +51,8 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       .catch(() => router.push("/login"));
   }, [router]);
 
-  const logout = () => {
-    Cookies.remove("token");
+  const logout = async () => {
+    await logoutSession();
     router.push("/login");
   };
 
@@ -111,12 +112,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 
       <header className="app-header lg:pl-0">
         <div className="px-4 py-3 flex items-center gap-3">
-          <button
-            type="button"
-            className="lg:hidden icon-btn"
-            onClick={() => setOpen(true)}
-            aria-label="Open menu"
-          >
+          <button type="button" className="lg:hidden icon-btn" onClick={() => setOpen(true)} aria-label="Open menu">
             <Menu className="w-5 h-5" />
           </button>
           <div className="flex-1 min-w-0">
@@ -144,18 +140,10 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
               <Nav onPick={() => setOpen(false)} />
             </nav>
             <div className="space-y-1 border-t border-line pt-2">
-              <Link
-                href="/dashboard"
-                onClick={() => setOpen(false)}
-                className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-muted"
-              >
+              <Link href="/dashboard" onClick={() => setOpen(false)} className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-muted">
                 <ExternalLink className="w-4 h-4" /> Open user app
               </Link>
-              <button
-                type="button"
-                onClick={logout}
-                className="w-full text-left flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-red-400"
-              >
+              <button type="button" onClick={logout} className="w-full text-left flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm text-red-400">
                 <LogOut className="w-4 h-4" /> Logout
               </button>
             </div>
