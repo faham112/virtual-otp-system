@@ -9,6 +9,7 @@ export default function PublicHeader() {
       <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
         <Link href="/" className="font-semibold text-fg truncate">Virtual OTP</Link>
         <div className="flex items-center gap-2 shrink-0">
+          <Link href="/terms" className="text-sm text-muted hover:text-fg hidden sm:inline">Terms</Link>
           <ThemeToggle />
           <Link href="/login" className="btn-ghost text-sm">Sign in</Link>
           <Link href="/register" className="btn-primary text-sm py-2 px-4">Get started</Link>
