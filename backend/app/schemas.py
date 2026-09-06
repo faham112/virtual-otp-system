@@ -81,7 +81,7 @@ class Token(BaseModel):
 class OrderCreate(BaseModel):
     service: str
     country: str = "any"
-    quality: str = "cheaper"
+    quality: str = "quality"
 
     @field_validator("service")
     @classmethod
@@ -102,7 +102,7 @@ class OrderCreate(BaseModel):
     @field_validator("quality")
     @classmethod
     def validate_quality(cls, v: str) -> str:
-        v = (v or "cheaper").lower().strip()
+        v = (v or "quality").lower().strip()
         if v in ("cheap", "low", "budget"):
             return "cheaper"
         if v in ("better", "best", "high", "quality", "premium"):
@@ -110,7 +110,7 @@ class OrderCreate(BaseModel):
         if v in ("mid", "balanced", "normal"):
             return "balanced"
         if v not in ("cheaper", "balanced", "quality"):
-            return "cheaper"
+            return "quality"
         return v
 
 class OrderOut(BaseModel):
