@@ -10,8 +10,7 @@ from app.schemas import UserCreate, UserOut, Token
 from app.auth import (
     get_password_hash,
     verify_password,
-    create_access_token,
-    ACCESS_TOKEN_EXPIRE_MINUTES,
+    token_for_user,
     get_current_user,
     get_current_admin,
 )
@@ -151,12 +150,8 @@ def login(
         )
     if not user.is_active:
         raise HTTPException(status_code=400, detail="User account is inactive")
-    access_token = create_access_token(
-        data={"sub": user.username},
-        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
-    )
     return {
-        "access_token": access_token,
+        "access_token": token_for_user(user),
         "token_type": "bearer",
         "is_admin": bool(user.is_admin),
         "username": user.username,
@@ -176,16 +171,19 @@ def google_login(body: GoogleToken, request: Request, db: Session = Depends(get_
         raise HTTPException(status_code=503, detail="Google login is not configured")
     data = verify_google_token(body.id_token, cid)
     user = find_or_create_google_user(db, data)
-    access_token = create_access_token(
-        data={"sub": user.username},
-        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
-    )
     return {
-        "access_token": access_token,
+        "access_token": token_for_user(user),
         "token_type": "bearer",
         "is_admin": bool(user.is_admin),
         "username": user.username,
     }
+
+
+@router.post("/logout")
+def logout(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    current_user.session_ver = int(getattr(current_user, "session_ver", 0) or 0) + 1
+    db.commit()
+    return {"ok": True}
 
 
 @router.post("/recovery-code")
