@@ -18,10 +18,10 @@ type Stats = {
 };
 
 const STEPS = [
-  { n: "1", t: "Create account", d: "Register with a username, email and a strong password, then sign in." },
+  { n: "1", t: "Create account", d: "Accept the Terms, register, then sign in." },
   { n: "2", t: "Add wallet balance", d: "Open Deposit, choose a bank, send PKR and upload the receipt. After admin approval, USDT appears in your wallet." },
-  { n: "3", t: "Pick service and country", d: "On the Buy page choose Facebook, WhatsApp or another service. Use Cheaper, Balanced or Better quality." },
-  { n: "4", t: "Receive OTP", d: "Copy the number into the app. The code appears here automatically. If no SMS arrives, tap Cancel and refund." },
+  { n: "3", t: "Buy with Better quality", d: "Buy opens on Better quality by default so Facebook codes are more likely to arrive. Switch to Cheaper only if you accept more failures." },
+  { n: "4", t: "Receive OTP", d: "Copy the number into the app. The code appears here automatically." },
 ];
 
 export default function Home() {
@@ -51,11 +51,11 @@ export default function Home() {
         </h1>
         <p className="mt-4 text-muted max-w-2xl text-sm sm:text-base leading-relaxed">
           Buy a number from your wallet and receive the OTP on this dashboard.
-          Cheaper picks the lowest price. Better quality costs more and usually delivers more reliably — use it for Facebook.
+          New orders use Better quality by default.
         </p>
         <div className="mt-6 flex flex-col sm:flex-row gap-3">
           <Link href="/register" className="btn-primary text-center py-3 px-6">Create free account</Link>
-          <Link href="/login" className="text-center py-3 px-6 rounded-xl border border-line text-fg">I already have an account</Link>
+          <Link href="/terms" className="text-center py-3 px-6 rounded-xl border border-line text-fg">Refund policy / Terms</Link>
         </div>
       </section>
 
@@ -66,7 +66,6 @@ export default function Home() {
           <Stat label="Countries" value={stats?.countries} />
           <Stat label="Services" value={stats?.services} />
         </div>
-        <p className="text-[11px] text-muted mt-2">Live counters refresh every 20 seconds. Phone numbers are never shown publicly.</p>
       </section>
 
       <section className="max-w-5xl mx-auto px-4 pb-10 grid md:grid-cols-2 gap-4">
@@ -102,15 +101,14 @@ export default function Home() {
       </section>
 
       <section className="max-w-5xl mx-auto px-4 pb-14">
-        <div className="card p-5 sm:p-6">
-          <h2 className="text-fg font-semibold mb-3">Read this before buying</h2>
-          <ul className="text-sm text-muted space-y-2 leading-relaxed">
-            <li>Numbers are virtual and meant for one verification. Do not use them as a long-term SIM.</li>
-            <li>Cheaper numbers fail more often on Facebook. Use Better quality when the code must arrive.</li>
-            <li>If no SMS arrives, tap Cancel and Refund. The balance returns to your wallet.</li>
-            <li>Deposits are manual. Send the amount and wait for admin approval.</li>
-            <li>Keep your password private. Admins will never ask for it.</li>
-          </ul>
+        <div className="card p-5 sm:p-6 space-y-3">
+          <h2 className="text-fg font-semibold">No refund policy</h2>
+          <p className="text-sm text-muted leading-relaxed">
+            Deposits and OTP purchases are final. We do not send money back to the bank or USDT wallet.
+            If Facebook rejects a number, that is an app block — not a site refund.
+            Better quality is the default because cheap numbers fail more often.
+          </p>
+          <Link href="/terms" className="text-sm text-blue-500 inline-block">Read full Terms and Conditions</Link>
         </div>
       </section>
     </main>
