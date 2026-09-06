@@ -12,11 +12,16 @@ export default function RegisterPage() {
   const router = useRouter();
   const [form, setForm] = useState({ username: "", email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
+  const [accepted, setAccepted] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!accepted) {
+      setError("Accept the Terms and no-refund policy to create an account.");
+      return;
+    }
     setLoading(true);
     setError("");
     try {
@@ -62,7 +67,25 @@ export default function RegisterPage() {
               <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted text-xs" tabIndex={-1}>{showPassword ? "Hide" : "Show"}</button>
             </div>
           </div>
-          <button type="submit" disabled={loading} className="w-full btn-primary py-3.5">{loading ? "Creating account..." : "Create Account"}</button>
+          <label className="flex items-start gap-3 text-sm text-muted cursor-pointer">
+            <input
+              type="radio"
+              name="terms"
+              checked={accepted}
+              onChange={() => setAccepted(true)}
+              onClick={() => setAccepted((v) => !v)}
+              className="mt-1"
+              required
+            />
+            <span>
+              I have read and accept the{" "}
+              <Link href="/terms" className="text-blue-500" target="_blank">Terms and Conditions</Link>
+              {" "}including the no-refund policy.
+            </span>
+          </label>
+          <button type="submit" disabled={loading || !accepted} className="w-full btn-primary py-3.5">
+            {loading ? "Creating account..." : "Create Account"}
+          </button>
         </form>
         <p className="text-center mt-7 text-sm text-muted">
           Already have an account? <Link href="/login" className="text-blue-500">Sign in</Link>
