@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function SiteFooter() {
   const year = new Date().getFullYear();
   return (
@@ -6,9 +8,10 @@ export default function SiteFooter() {
         <p className="text-[11px] text-muted">
           © {year} Virtual OTP. All rights reserved.
         </p>
-        <p className="text-[11px] text-muted">
-          Coded by <span className="text-fg">Faham Baloch</span>
-        </p>
+        <div className="flex items-center gap-3 text-[11px] text-muted">
+          <Link href="/terms" className="hover:text-fg">Terms</Link>
+          <span>Coded by <span className="text-fg">Faham Baloch</span></span>
+        </div>
       </div>
     </footer>
   );
