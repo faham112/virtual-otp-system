@@ -9,7 +9,9 @@ export default function SiteFooter() {
         <p className="text-[11px] text-muted">
           Coded by <span className="text-fg font-medium">Faham Baloch</span>
         </p>
-        <div className="flex flex-wrap items-center justify-center gap-3 pt-1 text-[11px] text-muted">
+        <p className="text-[10px] uppercase tracking-wide text-muted pt-1">Pages</p>
+        <div className="flex flex-wrap items-center justify-center gap-3 text-[11px] text-muted">
+          <Link href="/legal" className="hover:text-fg">Overview</Link>
           <Link href="/terms" className="hover:text-fg">Terms</Link>
           <Link href="/privacy" className="hover:text-fg">Privacy</Link>
           <Link href="/faq" className="hover:text-fg">FAQ</Link>
