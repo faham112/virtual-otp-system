@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
-import Cookies from "js-cookie";
+import { setToken } from "../lib/session";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -57,7 +57,7 @@ export default function GoogleButton({ onError }: { onError: (msg: string) => vo
       callback: async (resp: any) => {
         try {
           const res = await axios.post(`${API_URL}/api/auth/google`, { id_token: resp.credential });
-          Cookies.set("token", res.data.access_token, { expires: 7, sameSite: "lax" });
+          setToken(res.data.access_token);
           router.push(res.data.is_admin ? "/admin" : "/dashboard");
         } catch (e: any) {
           const detail = e.response?.data?.detail;
