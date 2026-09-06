@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import axios from "axios";
 import Cookies from "js-cookie";
+import { logoutSession } from "../lib/session";
 import {
   Menu,
   X,
@@ -20,9 +21,7 @@ import ThemeToggle from "./ThemeToggle";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-type Props = {
-  title: string;
-};
+type Props = { title: string };
 
 const NAV = [
   { href: "/dashboard", label: "Home", icon: Home },
@@ -61,20 +60,16 @@ export default function AppHeader({ title }: Props) {
         setUsername(res.data?.username || "");
       })
       .catch(() => setBalanceUsd(null));
-
-    axios
-      .get(`${API_URL}/api/public/fx`)
-      .then((res) => {
-        if (res.data?.rate) setRate(Number(res.data.rate));
-      })
-      .catch(() => {});
+    axios.get(`${API_URL}/api/public/fx`).then((res) => {
+      if (res.data?.rate) setRate(Number(res.data.rate));
+    }).catch(() => {});
   }, []);
 
   const balancePkr =
     balanceUsd !== null && rate > 0 ? balanceUsd * rate : balanceUsd !== null ? balanceUsd * 280 : null;
 
-  const logout = () => {
-    Cookies.remove("token");
+  const logout = async () => {
+    await logoutSession();
     setOpen(false);
     router.push("/login");
   };
@@ -87,37 +82,18 @@ export default function AppHeader({ title }: Props) {
         const Icon = item.icon;
         const active = isActive(item.href);
         return (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={onPick}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition ${
-              active ? "bg-blue-600/15 text-blue-500" : "text-muted hover:text-fg hover:bg-soft"
-            }`}
-          >
+          <Link key={item.href} href={item.href} onClick={onPick} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition ${active ? "bg-blue-600/15 text-blue-500" : "text-muted hover:text-fg hover:bg-soft"}`}>
             <Icon className="w-5 h-5" />
             {item.label}
           </Link>
         );
       })}
-      <Link
-        href="/account"
-        onClick={onPick}
-        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition ${
-          isActive("/account") ? "bg-blue-600/15 text-blue-500" : "text-muted hover:text-fg hover:bg-soft"
-        }`}
-      >
+      <Link href="/account" onClick={onPick} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition ${isActive("/account") ? "bg-blue-600/15 text-blue-500" : "text-muted hover:text-fg hover:bg-soft"}`}>
         <KeyRound className="w-5 h-5" />
         Account
       </Link>
       {isAdmin && (
-        <Link
-          href="/admin"
-          onClick={onPick}
-          className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition ${
-            isActive("/admin") ? "bg-violet-600/15 text-violet-500" : "text-violet-500"
-          }`}
-        >
+        <Link href="/admin" onClick={onPick} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition ${isActive("/admin") ? "bg-violet-600/15 text-violet-500" : "text-violet-500"}`}>
           <Shield className="w-5 h-5" />
           Admin
         </Link>
@@ -136,11 +112,7 @@ export default function AppHeader({ title }: Props) {
           <NavLinks />
         </nav>
         <div className="p-3 border-t border-line space-y-2">
-          <button
-            type="button"
-            onClick={logout}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-400 hover:bg-red-500/10 border border-red-500/20 transition"
-          >
+          <button type="button" onClick={logout} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-400 hover:bg-red-500/10 border border-red-500/20 transition">
             <LogOut className="w-4 h-4" />
             Logout
           </button>
